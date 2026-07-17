@@ -1,5 +1,9 @@
 const $ = (selector) => document.querySelector(selector);
-const state = { cards: [], currentIndex: 0, config: JSON.parse(localStorage.getItem('wordGardenConfig') || '{}') };
+const DEFAULT_CONFIG = {
+  url: 'https://kxpzkdrfsjusaeeipssg.supabase.co',
+  key: 'sb_publishable_2Qw0ubk0IUu0uszN0cqdPA_x_m3HZYx',
+};
+const state = { cards: [], currentIndex: 0, config: JSON.parse(localStorage.getItem('wordGardenConfig') || 'null') || DEFAULT_CONFIG };
 
 function apiHeaders() { return { apikey: state.config.key, Authorization: `Bearer ${state.config.key}`, 'Content-Type': 'application/json' }; }
 async function request(path, options = {}) {
