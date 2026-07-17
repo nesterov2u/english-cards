@@ -15,8 +15,20 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
+    <style>
+      .brand { letter-spacing: -0.3px; }
+      h1 { letter-spacing: -1.5px; }
+      h2 { letter-spacing: -0.4px; }
+      .has-cards .intro-row h1 { letter-spacing: -0.8px; }
+      .study-heading h1, .settings h1 { letter-spacing: -0.8px; }
+      .card-face h2 { letter-spacing: -1.3px; }
+    </style>
   </head>
   <body>
+    <div class="app-loader" id="app-loader" role="status" aria-live="polite">
+      <span class="loader-mark" aria-hidden="true"></span>
+      <p>Загружаем коллекцию</p>
+    </div>
     <main class="app-shell">
       <header>
         <a class="brand" href="#" aria-label="English Cards">English <span>Cards</span></a>
@@ -48,7 +60,7 @@
       <section class="view" id="study-view">
         <div class="study-heading">
           <p class="eyebrow">Режим изучения</p>
-          <h1>Переверните карточку</h1>
+          <h1 id="study-prompt">Переверните карточку</h1>
         </div>
         <div class="study-empty" id="study-empty">Добавьте хотя бы одну карточку, чтобы начать.</div>
         <article class="flashcard" id="flashcard" tabindex="0" role="button" aria-label="Перевернуть карточку">

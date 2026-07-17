@@ -5,10 +5,12 @@ const DEFAULT_CONFIG = {
 };
 const config = DEFAULT_CONFIG;
 const PAGE_SIZE = 60;
+const STUDY_PROMPTS = ['Одно слово — уже шаг.', 'Повторение делает сильнее.', 'Учите в своём ритме.', 'Небольшой шаг, большой словарь.', 'Сегодня слово — завтра уверенность.', 'Продолжайте, вы справляетесь.'];
 const state = { cards: [], studyCards: null, totalCards: 0, isLoadingMore: false, currentIndex: null, recentStudyIds: [], config };
 
 function apiHeaders() { return { apikey: state.config.key, Authorization: `Bearer ${state.config.key}`, 'Content-Type': 'application/json' }; }
 function setSyncStatus(isConnected, message) { $('#sync-status').classList.toggle('is-connected', isConnected); $('#sync-status').classList.toggle('is-disconnected', !isConnected); $('#sync-status').setAttribute('aria-label', message); $('#sync-status').title = message; }
+function setAppLoading(isLoading) { $('#app-loader').classList.toggle('is-hidden', !isLoading); $('#app-loader').setAttribute('aria-hidden', String(!isLoading)); }
 async function request(path, options = {}) {
   const { withCount = false, ...requestOptions } = options;
   if (!state.config.url || !state.config.key) throw new Error('Подключите Supabase в настройках.');
@@ -27,11 +29,12 @@ async function request(path, options = {}) {
   return { data, total: Number.isFinite(total) ? total : 0 };
 }
 async function loadCards() {
+  setAppLoading(true);
   state.cards = []; state.studyCards = null; state.totalCards = 0; state.currentIndex = null; state.recentStudyIds = [];
-  if (!state.config.url || !state.config.key) return render();
+  if (!state.config.url || !state.config.key) { render(); setAppLoading(false); return; }
   try { await loadMoreCards(); setSyncStatus(true, 'Общая база подключена'); }
   catch (error) { setSyncStatus(false, error.message); }
-  render();
+  render(); setAppLoading(false);
 }
 async function loadMoreCards() {
   if (state.isLoadingMore || state.cards.length >= state.totalCards && state.totalCards !== 0) return;
@@ -80,7 +83,8 @@ function setCardFlipped(isFlipped) {
   $('#card-back').setAttribute('aria-hidden', String(!isFlipped));
   $('#flashcard').setAttribute('aria-label', isFlipped ? 'Показать следующую карточку' : 'Показать перевод');
 }
-function switchView(name) { document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('is-active', tab.dataset.view === name)); document.querySelectorAll('.view').forEach(view => view.classList.toggle('is-active', view.id === `${name}-view`)); if (name === 'study' && state.totalCards) loadStudyCards(); }
+function setStudyPrompt() { $('#study-prompt').textContent = STUDY_PROMPTS[Math.floor(Math.random() * STUDY_PROMPTS.length)]; }
+function switchView(name) { document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('is-active', tab.dataset.view === name)); document.querySelectorAll('.view').forEach(view => view.classList.toggle('is-active', view.id === `${name}-view`)); if (name === 'study') { setStudyPrompt(); if (state.totalCards) loadStudyCards(); } }
 async function lookup(word) {
   const getTranslation = async (text) => {
     const url = new URL('https://api.mymemory.translated.net/get');
