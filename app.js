@@ -3,16 +3,12 @@ const DEFAULT_CONFIG = {
   url: 'https://kxpzkdrfsjusaeeipssg.supabase.co',
   key: 'sb_publishable_2Qw0ubk0lUuOuszN0cqdPA_x_m3HZYx',
 };
-const LEGACY_DEFAULT_CONFIG = {
-  url: DEFAULT_CONFIG.url,
-  key: 'sb_publishable_2Qw0ubk0IUu0uszN0cqdPA_x_m3HZYx',
-};
-const savedConfig = JSON.parse(localStorage.getItem('wordGardenConfig') || 'null');
-const config = savedConfig?.url === LEGACY_DEFAULT_CONFIG.url && savedConfig?.key === LEGACY_DEFAULT_CONFIG.key ? DEFAULT_CONFIG : savedConfig || DEFAULT_CONFIG;
+const config = DEFAULT_CONFIG;
 const PAGE_SIZE = 60;
 const state = { cards: [], studyCards: null, totalCards: 0, isLoadingMore: false, currentIndex: null, recentStudyIds: [], config };
 
 function apiHeaders() { return { apikey: state.config.key, Authorization: `Bearer ${state.config.key}`, 'Content-Type': 'application/json' }; }
+function setSyncStatus(isConnected, message) { $('#sync-status').classList.toggle('is-connected', isConnected); $('#sync-status').classList.toggle('is-disconnected', !isConnected); $('#sync-status').setAttribute('aria-label', message); $('#sync-status').title = message; }
 async function request(path, options = {}) {
   const { withCount = false, ...requestOptions } = options;
   if (!state.config.url || !state.config.key) throw new Error('Подключите Supabase в настройках.');
@@ -33,8 +29,8 @@ async function request(path, options = {}) {
 async function loadCards() {
   state.cards = []; state.studyCards = null; state.totalCards = 0; state.currentIndex = null; state.recentStudyIds = [];
   if (!state.config.url || !state.config.key) return render();
-  try { await loadMoreCards(); $('#sync-status').textContent = 'Общая база подключена'; }
-  catch (error) { $('#sync-status').textContent = error.message; }
+  try { await loadMoreCards(); setSyncStatus(true, 'Общая база подключена'); }
+  catch (error) { setSyncStatus(false, error.message); }
   render();
 }
 async function loadMoreCards() {
@@ -105,7 +101,7 @@ async function lookup(word) {
 }
 $('.tabs').addEventListener('click', event => { const tab = event.target.closest('.tab'); if (tab) switchView(tab.dataset.view); });
 $('#load-more').onclick = () => loadMoreCards().catch(error => alert(error.message));
-$('#open-add').onclick = () => { if (!state.config.url) { switchView('settings'); return; } $('#word-form').reset(); $('#save-word').disabled = true; $('#auto-fields').classList.remove('show'); $('#add-dialog').showModal(); $('#word-input').focus(); };
+$('#open-add').onclick = () => { $('#word-form').reset(); $('#save-word').disabled = true; $('#auto-fields').classList.remove('show'); $('#add-dialog').showModal(); $('#word-input').focus(); };
 $('.close').onclick = () => $('#add-dialog').close();
 $('#word-input').addEventListener('change', async event => { const word = event.target.value.trim(); if (!word) return; $('#save-word').disabled = true; $('#lookup-loading').classList.add('show'); try { const data = await lookup(word); $('#translation-input').value = data.translation; $('#definition-input').value = data.definition; $('#example-input').value = data.example; $('#auto-fields').classList.add('show'); $('#word-form').dataset.phonetic = data.phonetic; $('#save-word').disabled = false; } catch (error) { $('#auto-fields').classList.add('show'); $('#save-word').disabled = false; alert(`${error.message} Заполните перевод вручную.`); } finally { $('#lookup-loading').classList.remove('show'); } });
 $('#word-form').addEventListener('submit', async event => { event.preventDefault(); const card = { word: $('#word-input').value.trim(), translation: $('#translation-input').value.trim(), definition: $('#definition-input').value.trim(), example: $('#example-input').value.trim(), phonetic: $('#word-form').dataset.phonetic || '' }; try { const result = await request('cards', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(card) }); state.cards.unshift(result[0]); if (state.cards.length > PAGE_SIZE) state.cards.pop(); state.totalCards += 1; if (state.studyCards) state.studyCards.unshift(result[0]); $('#add-dialog').close(); render(); } catch (error) { alert(error.message); } });
@@ -120,5 +116,4 @@ function chooseStudyCard() {
 }
 function nextStudyCard() { chooseStudyCard(); render(); }
 $('#flashcard').onclick = () => $('#flashcard').classList.contains('is-flipped') ? nextStudyCard() : setCardFlipped(true); $('#flashcard').onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setCardFlipped(!$('#flashcard').classList.contains('is-flipped')); } };
-$('#supabase-url').value = state.config.url || ''; $('#supabase-key').value = state.config.key || ''; $('#save-settings').onclick = () => { state.config = { url: $('#supabase-url').value.replace(/\/$/, ''), key: $('#supabase-key').value.trim() }; localStorage.setItem('wordGardenConfig', JSON.stringify(state.config)); loadCards(); switchView('library'); };
 loadCards();

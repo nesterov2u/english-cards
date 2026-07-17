@@ -20,13 +20,12 @@
     <main class="app-shell">
       <header>
         <a class="brand" href="#" aria-label="English Cards">English <span>Cards</span></a>
-        <p class="sync-status" id="sync-status">Подключите Supabase в настройках</p>
+        <span class="sync-status is-disconnected" id="sync-status" role="status" aria-label="База не подключена" title="База не подключена"></span>
       </header>
 
       <nav class="tabs" aria-label="Режим приложения">
-        <button class="tab is-active" data-view="library">Мои слова <span id="word-count">0</span></button>
-        <button class="tab" data-view="study">Учить</button>
-        <button class="tab" data-view="settings">Настройки</button>
+        <button class="tab is-active" data-view="library"><span class="tab-label">Мои слова <span class="tab-count" id="word-count">0</span></span></button>
+        <button class="tab" data-view="study"><span class="tab-label">Учить</span></button>
       </nav>
 
       <section class="view is-active" id="library-view">
@@ -70,18 +69,6 @@
         </article>
       </section>
 
-      <section class="view settings" id="settings-view">
-        <p class="eyebrow">Подключение</p>
-        <h1>Настройки Supabase</h1>
-        <p>Сначала создайте проект Supabase и выполните файл <code>supabase/schema.sql</code> в SQL Editor. Затем возьмите эти данные в Settings → API. Они не являются секретом.</p>
-        <label>URL проекта<input id="supabase-url" placeholder="https://xxxx.supabase.co" /></label>
-        <label>Publishable / anon key<textarea id="supabase-key" rows="3" placeholder="sb_publishable_... или eyJ..."></textarea></label>
-        <button class="add-button" id="save-settings">Сохранить подключение</button>
-        <aside class="deepl-help">
-          <strong>Перевод уже подключён</strong>
-          <p>MyMemory не требует ключа. Бесплатный лимит — 5 000 символов в день, чего достаточно для сотен новых карточек.</p>
-        </aside>
-      </section>
     </main>
 
     <dialog id="add-dialog">
