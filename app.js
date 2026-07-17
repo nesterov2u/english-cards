@@ -78,7 +78,6 @@ function fitStudyHeading(element) {
 function render() {
   $('#word-count').textContent = state.totalCards;
   $('#library-view').classList.toggle('has-cards', state.totalCards > 0);
-  $('#library-title').innerHTML = state.totalCards ? 'Мой словарь' : 'Добавьте слово,<br />остальное найдём сами.';
   $('#empty-state').style.display = state.totalCards ? 'none' : 'block';
   $('#cards-list').innerHTML = state.cards.map(card => `<article class="word-card"><button class="edit" data-id="${card.id}" aria-label="Редактировать"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.4-1 10.1-10.1a2.1 2.1 0 0 0-3-3L5.4 15.9 4 20Z" /><path d="m13.9 7.5 3 3" /></svg></button><button class="remove" data-id="${card.id}" aria-label="Удалить">×</button><h2>${escapeHtml(card.word)}</h2><p class="translation">${escapeHtml(card.translation)}</p><p class="definition">${escapeHtml(card.definition || '')}</p></article>`).join('');
   $('#load-more').hidden = state.cards.length >= state.totalCards || state.totalCards === 0;
@@ -124,21 +123,64 @@ async function lookup(word) {
 }
 $('.tabs').addEventListener('click', event => { const tab = event.target.closest('.tab'); if (tab) switchView(tab.dataset.view); });
 $('#load-more').onclick = () => loadMoreCards().catch(error => alert(error.message));
-function openCardDialog(card = null) {
-  const isEditing = Boolean(card);
-  $('#word-form').reset(); $('#word-form').dataset.editingId = card?.id || ''; $('#word-form').dataset.phonetic = card?.phonetic || '';
-  $('#dialog-eyebrow').textContent = isEditing ? 'Редактирование карточки' : 'Новая карточка';
-  $('#dialog-title').textContent = isEditing ? 'Измените карточку' : 'Что сегодня учим?';
-  $('#save-word').textContent = isEditing ? 'Сохранить изменения' : 'Сохранить карточку';
-  $('#auto-fields').classList.toggle('show', isEditing); $('#save-word').disabled = !isEditing;
-  if (card) { $('#word-input').value = card.word; $('#translation-input').value = card.translation; $('#definition-input').value = card.definition || ''; }
-  $('#add-dialog').showModal(); $('#word-input').focus();
+function getCardFromForm(prefix, form) { return { word: $(`#${prefix}-word-input`).value.trim(), translation: $(`#${prefix}-translation-input`).value.trim(), definition: $(`#${prefix}-definition-input`).value.trim(), phonetic: form.dataset.phonetic || '' }; }
+async function fillCardFields(prefix, form) {
+  const word = $(`#${prefix}-word-input`).value.trim();
+  if (!word) return;
+  const saveButton = $(`#${prefix}-save-word`);
+  saveButton.disabled = true;
+  $(`#${prefix}-lookup-loading`).classList.add('show');
+  try {
+    const data = await lookup(word);
+    $(`#${prefix}-translation-input`).value = data.translation;
+    $(`#${prefix}-definition-input`).value = data.definition;
+    form.dataset.phonetic = data.phonetic;
+  } catch (error) {
+    alert(`${error.message} Заполните перевод вручную.`);
+  } finally {
+    saveButton.disabled = false;
+    $(`#${prefix}-lookup-loading`).classList.remove('show');
+  }
 }
-$('#open-add').onclick = () => openCardDialog();
-$('.close').onclick = () => $('#add-dialog').close();
-$('#word-input').addEventListener('change', async event => { const word = event.target.value.trim(); if (!word) return; $('#save-word').disabled = true; $('#lookup-loading').classList.add('show'); try { const data = await lookup(word); $('#translation-input').value = data.translation; $('#definition-input').value = data.definition; $('#auto-fields').classList.add('show'); $('#word-form').dataset.phonetic = data.phonetic; $('#save-word').disabled = false; } catch (error) { $('#auto-fields').classList.add('show'); $('#save-word').disabled = false; alert(`${error.message} Заполните перевод вручную.`); } finally { $('#lookup-loading').classList.remove('show'); } });
-$('#word-form').addEventListener('submit', async event => { event.preventDefault(); const card = { word: $('#word-input').value.trim(), translation: $('#translation-input').value.trim(), definition: $('#definition-input').value.trim(), phonetic: $('#word-form').dataset.phonetic || '' }; const editingId = $('#word-form').dataset.editingId; try { const result = await request(editingId ? `cards?id=eq.${editingId}` : 'cards', { method: editingId ? 'PATCH' : 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(card) }); const savedCard = result?.[0]; if (!savedCard) throw new Error(editingId ? 'Не удалось обновить карточку. В базе нужно разрешить изменение карточек.' : 'Не удалось сохранить карточку.'); if (editingId) { state.cards = state.cards.map(item => item.id === editingId ? savedCard : item); if (state.studyCards) state.studyCards = state.studyCards.map(item => item.id === editingId ? savedCard : item); } else { state.cards.unshift(savedCard); if (state.cards.length > PAGE_SIZE) state.cards.pop(); state.totalCards += 1; if (state.studyCards) state.studyCards.unshift(savedCard); } $('#add-dialog').close(); render(); } catch (error) { alert(error.message); } });
-$('#cards-list').addEventListener('click', async event => { const editButton = event.target.closest('.edit'); if (editButton) { openCardDialog(state.cards.find(card => card.id === editButton.dataset.id)); return; } const button = event.target.closest('.remove'); if (!button || !confirm('Удалить карточку?')) return; try { await request(`cards?id=eq.${button.dataset.id}`, { method: 'DELETE' }); state.cards = state.cards.filter(card => card.id !== button.dataset.id); state.totalCards = Math.max(0, state.totalCards - 1); state.seenStudyIds.delete(button.dataset.id); state.studyQueue = state.studyQueue.filter(id => id !== button.dataset.id); if (state.studyCards) { state.studyCards = state.studyCards.filter(card => card.id !== button.dataset.id); if (!state.studyCards.length) state.isStudyComplete = false; if (state.currentIndex >= state.studyCards.length) state.currentIndex = null; } render(); } catch (error) { alert(error.message); } });
+async function persistCard(card, editingId = '') {
+  const result = await request(editingId ? `cards?id=eq.${editingId}` : 'cards', { method: editingId ? 'PATCH' : 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(card) });
+  const savedCard = result?.[0];
+  if (!savedCard) throw new Error(editingId ? 'Не удалось обновить карточку. В базе нужно разрешить изменение карточек.' : 'Не удалось сохранить карточку.');
+  if (editingId) {
+    state.cards = state.cards.map(item => item.id === editingId ? savedCard : item);
+    if (state.studyCards) state.studyCards = state.studyCards.map(item => item.id === editingId ? savedCard : item);
+  } else {
+    state.cards.unshift(savedCard);
+    if (state.cards.length > PAGE_SIZE) state.cards.pop();
+    state.totalCards += 1;
+    if (state.studyCards) state.studyCards.unshift(savedCard);
+  }
+  render();
+}
+function openEditDialog(card) {
+  if (!card) return;
+  const form = $('#edit-word-form');
+  form.reset(); form.dataset.editingId = card.id; form.dataset.phonetic = card.phonetic || '';
+  $('#edit-word-input').value = card.word;
+  $('#edit-translation-input').value = card.translation;
+  $('#edit-definition-input').value = card.definition || '';
+  $('#edit-dialog').showModal();
+  $('#edit-word-input').focus();
+}
+$('.close').onclick = () => $('#edit-dialog').close();
+$('#add-word-input').addEventListener('change', () => fillCardFields('add', $('#add-word-form')));
+$('#edit-word-input').addEventListener('change', () => fillCardFields('edit', $('#edit-word-form')));
+$('#add-word-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  try { await persistCard(getCardFromForm('add', form)); form.reset(); form.dataset.phonetic = ''; } catch (error) { alert(error.message); }
+});
+$('#edit-word-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  try { await persistCard(getCardFromForm('edit', form), form.dataset.editingId); $('#edit-dialog').close(); } catch (error) { alert(error.message); }
+});
+$('#cards-list').addEventListener('click', async event => { const editButton = event.target.closest('.edit'); if (editButton) { openEditDialog(state.cards.find(card => card.id === editButton.dataset.id)); return; } const button = event.target.closest('.remove'); if (!button || !confirm('Удалить карточку?')) return; try { await request(`cards?id=eq.${button.dataset.id}`, { method: 'DELETE' }); state.cards = state.cards.filter(card => card.id !== button.dataset.id); state.totalCards = Math.max(0, state.totalCards - 1); state.seenStudyIds.delete(button.dataset.id); state.studyQueue = state.studyQueue.filter(id => id !== button.dataset.id); if (state.studyCards) { state.studyCards = state.studyCards.filter(card => card.id !== button.dataset.id); if (!state.studyCards.length) state.isStudyComplete = false; if (state.currentIndex >= state.studyCards.length) state.currentIndex = null; } render(); } catch (error) { alert(error.message); } });
 function shuffle(cards) { for (let index = cards.length - 1; index > 0; index -= 1) { const randomIndex = Math.floor(Math.random() * (index + 1)); [cards[index], cards[randomIndex]] = [cards[randomIndex], cards[index]]; } return cards; }
 function startStudySession() { if (!state.studyCards?.length) return; state.studyQueue = shuffle(state.studyCards.map(card => card.id)); state.currentIndex = null; state.recentStudyIds = []; state.seenStudyIds = new Set(); state.isStudyComplete = false; chooseStudyCard(); render(); }
 function chooseStudyCard() {
@@ -154,7 +196,7 @@ function activateFlashcard() { if (!$('#flashcard').classList.contains('has-card
 $('#flashcard').onclick = () => { if (Date.now() < ignoreFlashcardClickUntil) return; activateFlashcard(); };
 document.addEventListener('keydown', event => {
   if (event.key !== 'Enter' && event.code !== 'Space') return;
-  if ($('#add-dialog').open || event.target.closest('input, textarea, select, button, [contenteditable="true"]')) return;
+  if ($('#edit-dialog').open || event.target.closest('input, textarea, select, button, [contenteditable="true"]')) return;
   event.preventDefault();
   if (event.repeat) return;
   ignoreFlashcardClickUntil = Date.now() + 250;

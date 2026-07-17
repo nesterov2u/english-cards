@@ -46,18 +46,29 @@
       </header>
 
       <nav class="tabs" aria-label="Режим приложения">
-        <button class="tab is-active" data-view="library"><span class="tab-label">Мои слова <span class="tab-count" id="word-count">0</span></span></button>
+        <button class="tab is-active" data-view="translate"><span class="tab-label">Перевод</span></button>
+        <button class="tab" data-view="library"><span class="tab-label">Словарь <span class="tab-count" id="word-count">0</span></span></button>
         <button class="tab" data-view="study"><span class="tab-label">Учить</span></button>
       </nav>
 
-      <section class="view is-active" id="library-view">
-        <div class="intro-row">
-          <div>
-            <p class="eyebrow">Ваша личная коллекция</p>
-            <h1 id="library-title">Добавьте слово,<br />остальное найдём сами.</h1>
-          </div>
-          <button class="add-button icon-button" id="open-add" aria-label="Новая карточка" title="Новая карточка">+</button>
+      <section class="view is-active" id="translate-view">
+        <div class="translate-panel">
+          <p class="eyebrow">Новая карточка</p>
+          <h1>Перевод</h1>
+          <form id="add-word-form">
+            <label>Слово или фраза на английском<input id="add-word-input" required autocomplete="off" placeholder="например, put off" /></label>
+            <div class="loading" id="add-lookup-loading">Ищем перевод и значение…</div>
+            <div class="auto-fields show" id="add-auto-fields">
+              <label>Перевод<input id="add-translation-input" required /></label>
+              <label>Объяснение значения<textarea id="add-definition-input" rows="4"></textarea></label>
+            </div>
+            <button class="add-button add-outline wide" id="add-save-word" type="submit">Добавить</button>
+          </form>
         </div>
+      </section>
+
+      <section class="view" id="library-view">
+        <h1 class="library-heading">Словарь</h1>
         <div class="empty-state" id="empty-state">
           <div class="seed">✦</div>
           <h2>Здесь вырастет ваш словарь</h2>
@@ -107,19 +118,17 @@
 
     </main>
 
-    <dialog id="add-dialog">
-      <form method="dialog" id="word-form">
+    <dialog id="edit-dialog">
+      <form id="edit-word-form">
         <button class="close" type="button" aria-label="Закрыть">×</button>
-        <p class="eyebrow" id="dialog-eyebrow">Новая карточка</p>
-        <h2 id="dialog-title">Что сегодня учим?</h2>
-        <label>Слово или фраза на английском<input id="word-input" required autocomplete="off" placeholder="например, put off" /></label>
-        <div class="loading" id="lookup-loading">Ищем перевод и значение…</div>
-        <div class="auto-fields" id="auto-fields">
-          <label>Перевод<input id="translation-input" required /></label>
-          <label>Объяснение значения<textarea id="definition-input" rows="3"></textarea></label>
+        <p class="eyebrow">Редактирование карточки</p>
+        <label>Слово или фраза на английском<input id="edit-word-input" required autocomplete="off" /></label>
+        <div class="loading" id="edit-lookup-loading">Ищем перевод и значение…</div>
+        <div class="auto-fields show" id="edit-auto-fields">
+          <label>Перевод<input id="edit-translation-input" required /></label>
+          <label>Объяснение значения<textarea id="edit-definition-input" rows="3"></textarea></label>
         </div>
-        <button class="add-button wide" id="save-word" value="default" disabled>Сохранить карточку</button>
-        <p class="form-note">Перевод и объяснение можно исправить перед сохранением.</p>
+        <button class="add-button add-outline wide" id="edit-save-word" type="submit">Сохранить изменения</button>
       </form>
     </dialog>
     <script src="app.js"></script>
