@@ -6,8 +6,9 @@ const DEFAULT_CONFIG = {
 const config = DEFAULT_CONFIG;
 const PAGE_SIZE = 60;
 const STUDY_PROMPTS = ['Одно слово — уже шаг.', 'Повторение делает сильнее.', 'Учите в своём ритме.', 'Небольшой шаг, большой словарь.', 'Сегодня слово — завтра уверенность.', 'Продолжайте, вы справляетесь.'];
-const state = { cards: [], studyCards: null, totalCards: 0, isLoadingMore: false, currentIndex: null, recentStudyIds: [], config };
+const state = { cards: [], studyCards: null, totalCards: 0, isLoadingMore: false, isStudyLoading: false, currentIndex: null, recentStudyIds: [], config };
 let ignoreFlashcardClickUntil = 0;
+let studyLoadPromise = null;
 
 function apiHeaders() { return { apikey: state.config.key, Authorization: `Bearer ${state.config.key}`, 'Content-Type': 'application/json' }; }
 function setSyncStatus(isConnected, message) { $('#sync-status').classList.toggle('is-connected', isConnected); $('#sync-status').classList.toggle('is-disconnected', !isConnected); $('#sync-status').setAttribute('aria-label', message); $('#sync-status').title = message; }
@@ -48,12 +49,23 @@ async function loadMoreCards() {
 }
 async function loadStudyCards() {
   if (state.studyCards) { chooseStudyCard(); render(); return; }
-  try {
-    state.studyCards = await request('cards?select=*&order=created_at.desc');
+  if (state.cards.length) {
+    state.studyCards = [...state.cards];
     state.currentIndex = null; state.recentStudyIds = [];
-    if (state.studyCards.length) chooseStudyCard();
-  } catch (error) { $('#study-empty').textContent = error.message; }
-  render();
+    chooseStudyCard(); render();
+    return;
+  }
+  if (studyLoadPromise) return studyLoadPromise;
+  state.isStudyLoading = true; render();
+  studyLoadPromise = (async () => {
+    try {
+      state.studyCards = await request('cards?select=*&order=created_at.desc');
+      state.currentIndex = null; state.recentStudyIds = [];
+      if (state.studyCards.length) chooseStudyCard();
+    } catch (error) { $('#study-empty').textContent = error.message; }
+    finally { state.isStudyLoading = false; studyLoadPromise = null; render(); }
+  })();
+  return studyLoadPromise;
 }
 function escapeHtml(text = '') { const element = document.createElement('span'); element.textContent = text; return element.innerHTML; }
 function fitStudyHeading(element) {
@@ -75,7 +87,8 @@ function render() {
   $('#load-more').disabled = state.isLoadingMore;
   $('#load-more').textContent = state.isLoadingMore ? 'Загружаем…' : 'Показать ещё';
   const card = state.studyCards?.[state.currentIndex];
-  $('#study-empty').style.display = card ? 'none' : 'block'; $('#flashcard').classList.toggle('has-card', !!card);
+  $('#study-loader').hidden = !state.isStudyLoading || !!card;
+  $('#study-empty').style.display = card || state.isStudyLoading ? 'none' : 'block'; $('#flashcard').classList.toggle('has-card', !!card);
   if (card) { const definition = card.definition || ''; $('#study-word').textContent = card.word; $('#study-phonetic').textContent = card.phonetic || ''; $('#study-translation').textContent = card.translation; $('#study-definition').textContent = definition; $('#card-back').classList.toggle('has-long-definition', definition.length > 110); fitStudyHeading($('#study-word')); fitStudyHeading($('#study-translation')); setCardFlipped(false); }
 }
 function setCardFlipped(isFlipped) {
