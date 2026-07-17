@@ -40,7 +40,7 @@ function render() {
   $('#cards-list').innerHTML = state.cards.map(card => `<article class="word-card"><button class="remove" data-id="${card.id}" aria-label="Удалить">×</button><h2>${escapeHtml(card.word)}</h2><p class="translation">${escapeHtml(card.translation)}</p><p class="definition">${escapeHtml(card.definition || '')}</p></article>`).join('');
   const card = state.cards[state.currentIndex];
   $('#study-empty').style.display = card ? 'none' : 'block'; $('#flashcard').classList.toggle('has-card', !!card); $('#next-card').style.display = card ? 'block' : 'none';
-  if (card) { $('#study-word').textContent = card.word; $('#study-phonetic').textContent = card.phonetic || ''; $('#study-translation').textContent = card.translation; $('#study-definition').textContent = card.definition || ''; setCardFlipped(false); }
+  if (card) { const definition = card.definition || ''; $('#study-word').textContent = card.word; $('#study-phonetic').textContent = card.phonetic || ''; $('#study-translation').textContent = card.translation; $('#study-definition').textContent = definition; $('#card-back').classList.toggle('has-long-definition', definition.length > 110); setCardFlipped(false); }
 }
 function setCardFlipped(isFlipped) {
   $('#flashcard').classList.toggle('is-flipped', isFlipped);
