@@ -35,7 +35,7 @@
             <p class="eyebrow">Ваша личная коллекция</p>
             <h1 id="library-title">Добавьте слово,<br />остальное найдём сами.</h1>
           </div>
-          <button class="add-button" id="open-add">+ Новая карточка</button>
+          <button class="add-button icon-button" id="open-add" aria-label="Новая карточка" title="Новая карточка">+</button>
         </div>
         <div class="empty-state" id="empty-state">
           <div class="seed">✦</div>
@@ -43,6 +43,7 @@
           <p>Добавьте первое английское слово или фразу.</p>
         </div>
         <div class="cards-grid" id="cards-list"></div>
+        <button class="load-more" id="load-more" hidden>Показать ещё</button>
       </section>
 
       <section class="view" id="study-view">
@@ -67,7 +68,6 @@
             </div>
           </div>
         </article>
-        <button class="next-button" id="next-card">Следующая</button>
       </section>
 
       <section class="view settings" id="settings-view">
