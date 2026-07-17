@@ -7,6 +7,7 @@ const config = DEFAULT_CONFIG;
 const PAGE_SIZE = 60;
 const STUDY_PROMPTS = ['Одно слово — уже шаг.', 'Повторение делает сильнее.', 'Учите в своём ритме.', 'Небольшой шаг, большой словарь.', 'Сегодня слово — завтра уверенность.', 'Продолжайте, вы справляетесь.'];
 const state = { cards: [], studyCards: null, totalCards: 0, isLoadingMore: false, currentIndex: null, recentStudyIds: [], config };
+let ignoreFlashcardClickUntil = 0;
 
 function apiHeaders() { return { apikey: state.config.key, Authorization: `Bearer ${state.config.key}`, 'Content-Type': 'application/json' }; }
 function setSyncStatus(isConnected, message) { $('#sync-status').classList.toggle('is-connected', isConnected); $('#sync-status').classList.toggle('is-disconnected', !isConnected); $('#sync-status').setAttribute('aria-label', message); $('#sync-status').title = message; }
@@ -129,5 +130,14 @@ function chooseStudyCard() {
   state.recentStudyIds = [...state.recentStudyIds, card.id].slice(-3);
 }
 function nextStudyCard() { chooseStudyCard(); render(); }
-$('#flashcard').onclick = () => $('#flashcard').classList.contains('is-flipped') ? nextStudyCard() : setCardFlipped(true); $('#flashcard').onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setCardFlipped(!$('#flashcard').classList.contains('is-flipped')); } };
+function activateFlashcard() { if (!$('#flashcard').classList.contains('has-card')) return; $('#flashcard').classList.contains('is-flipped') ? nextStudyCard() : setCardFlipped(true); }
+$('#flashcard').onclick = () => { if (Date.now() < ignoreFlashcardClickUntil) return; activateFlashcard(); };
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Enter' && event.code !== 'Space') return;
+  if ($('#add-dialog').open || event.target.closest('input, textarea, select, button, [contenteditable="true"]')) return;
+  event.preventDefault();
+  if (event.repeat) return;
+  ignoreFlashcardClickUntil = Date.now() + 250;
+  activateFlashcard();
+});
 loadCards();
