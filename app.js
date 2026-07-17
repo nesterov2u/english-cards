@@ -80,7 +80,7 @@ function fitStudyHeading(element) {
 function render() {
   $('#word-count').textContent = state.totalCards;
   $('#library-view').classList.toggle('has-cards', state.totalCards > 0);
-  $('#library-title').innerHTML = state.totalCards ? 'Моя коллекция' : 'Добавьте слово,<br />остальное найдём сами.';
+  $('#library-title').innerHTML = state.totalCards ? 'Мой словарь' : 'Добавьте слово,<br />остальное найдём сами.';
   $('#empty-state').style.display = state.totalCards ? 'none' : 'block';
   $('#cards-list').innerHTML = state.cards.map(card => `<article class="word-card"><button class="edit" data-id="${card.id}" aria-label="Редактировать"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.4-1 10.1-10.1a2.1 2.1 0 0 0-3-3L5.4 15.9 4 20Z" /><path d="m13.9 7.5 3 3" /></svg></button><button class="remove" data-id="${card.id}" aria-label="Удалить">×</button><h2>${escapeHtml(card.word)}</h2><p class="translation">${escapeHtml(card.translation)}</p><p class="definition">${escapeHtml(card.definition || '')}</p></article>`).join('');
   $('#load-more').hidden = state.cards.length >= state.totalCards || state.totalCards === 0;
