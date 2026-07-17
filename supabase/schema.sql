@@ -3,7 +3,6 @@ create table public.cards (
   word text not null,
   translation text not null,
   definition text,
-  example text,
   phonetic text,
   created_at timestamptz not null default now()
 );
