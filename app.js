@@ -6,7 +6,7 @@ const DEFAULT_CONFIG = {
 const config = DEFAULT_CONFIG;
 const PAGE_SIZE = 60;
 const STUDY_PROMPTS = ['Одно слово — уже шаг.', 'Повторение делает сильнее.', 'Учите в своём ритме.', 'Небольшой шаг, большой словарь.', 'Сегодня слово — завтра уверенность.', 'Продолжайте, вы справляетесь.'];
-const state = { cards: [], studyCards: null, totalCards: 0, isLoadingMore: false, isStudyLoading: false, currentIndex: null, recentStudyIds: [], config };
+const state = { cards: [], studyCards: null, totalCards: 0, isLoadingMore: false, isStudyLoading: false, currentIndex: null, recentStudyIds: [], seenStudyIds: new Set(), config };
 let ignoreFlashcardClickUntil = 0;
 let studyLoadPromise = null;
 
@@ -32,7 +32,7 @@ async function request(path, options = {}) {
 }
 async function loadCards() {
   setAppLoading(true);
-  state.cards = []; state.studyCards = null; state.totalCards = 0; state.currentIndex = null; state.recentStudyIds = [];
+  state.cards = []; state.studyCards = null; state.totalCards = 0; state.currentIndex = null; state.recentStudyIds = []; state.seenStudyIds = new Set();
   if (!state.config.url || !state.config.key) { render(); setAppLoading(false); return; }
   try { await loadMoreCards(); setSyncStatus(true, 'Общая база подключена'); }
   catch (error) { setSyncStatus(false, error.message); }
@@ -51,7 +51,7 @@ async function loadStudyCards() {
   if (state.studyCards) { chooseStudyCard(); render(); return; }
   if (state.cards.length) {
     state.studyCards = [...state.cards];
-    state.currentIndex = null; state.recentStudyIds = [];
+    state.currentIndex = null; state.recentStudyIds = []; state.seenStudyIds = new Set();
     chooseStudyCard(); render();
     return;
   }
@@ -89,6 +89,11 @@ function render() {
   const card = state.studyCards?.[state.currentIndex];
   $('#study-loader').hidden = !state.isStudyLoading || !!card;
   $('#study-empty').style.display = card || state.isStudyLoading ? 'none' : 'block'; $('#flashcard').classList.toggle('has-card', !!card);
+  const totalStudyCards = state.studyCards?.length || 0;
+  const shownStudyCards = state.seenStudyIds.size;
+  $('#study-progress').hidden = !card;
+  $('#study-progress-count').textContent = `${shownStudyCards} из ${totalStudyCards}`;
+  $('#study-progress-value').style.width = totalStudyCards ? `${shownStudyCards / totalStudyCards * 100}%` : '0%';
   if (card) { const definition = card.definition || ''; $('#study-word').textContent = card.word; $('#study-phonetic').textContent = card.phonetic || ''; $('#study-translation').textContent = card.translation; $('#study-definition').textContent = definition; $('#card-back').classList.toggle('has-long-definition', definition.length > 110); fitStudyHeading($('#study-word')); fitStudyHeading($('#study-translation')); setCardFlipped(false); }
 }
 function setCardFlipped(isFlipped) {
@@ -133,7 +138,7 @@ $('#open-add').onclick = () => openCardDialog();
 $('.close').onclick = () => $('#add-dialog').close();
 $('#word-input').addEventListener('change', async event => { const word = event.target.value.trim(); if (!word) return; $('#save-word').disabled = true; $('#lookup-loading').classList.add('show'); try { const data = await lookup(word); $('#translation-input').value = data.translation; $('#definition-input').value = data.definition; $('#auto-fields').classList.add('show'); $('#word-form').dataset.phonetic = data.phonetic; $('#save-word').disabled = false; } catch (error) { $('#auto-fields').classList.add('show'); $('#save-word').disabled = false; alert(`${error.message} Заполните перевод вручную.`); } finally { $('#lookup-loading').classList.remove('show'); } });
 $('#word-form').addEventListener('submit', async event => { event.preventDefault(); const card = { word: $('#word-input').value.trim(), translation: $('#translation-input').value.trim(), definition: $('#definition-input').value.trim(), phonetic: $('#word-form').dataset.phonetic || '' }; const editingId = $('#word-form').dataset.editingId; try { const result = await request(editingId ? `cards?id=eq.${editingId}` : 'cards', { method: editingId ? 'PATCH' : 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(card) }); const savedCard = result?.[0]; if (!savedCard) throw new Error(editingId ? 'Не удалось обновить карточку. В базе нужно разрешить изменение карточек.' : 'Не удалось сохранить карточку.'); if (editingId) { state.cards = state.cards.map(item => item.id === editingId ? savedCard : item); if (state.studyCards) state.studyCards = state.studyCards.map(item => item.id === editingId ? savedCard : item); } else { state.cards.unshift(savedCard); if (state.cards.length > PAGE_SIZE) state.cards.pop(); state.totalCards += 1; if (state.studyCards) state.studyCards.unshift(savedCard); } $('#add-dialog').close(); render(); } catch (error) { alert(error.message); } });
-$('#cards-list').addEventListener('click', async event => { const editButton = event.target.closest('.edit'); if (editButton) { openCardDialog(state.cards.find(card => card.id === editButton.dataset.id)); return; } const button = event.target.closest('.remove'); if (!button || !confirm('Удалить карточку?')) return; try { await request(`cards?id=eq.${button.dataset.id}`, { method: 'DELETE' }); state.cards = state.cards.filter(card => card.id !== button.dataset.id); state.totalCards = Math.max(0, state.totalCards - 1); if (state.studyCards) { state.studyCards = state.studyCards.filter(card => card.id !== button.dataset.id); if (state.currentIndex >= state.studyCards.length) state.currentIndex = null; } render(); } catch (error) { alert(error.message); } });
+$('#cards-list').addEventListener('click', async event => { const editButton = event.target.closest('.edit'); if (editButton) { openCardDialog(state.cards.find(card => card.id === editButton.dataset.id)); return; } const button = event.target.closest('.remove'); if (!button || !confirm('Удалить карточку?')) return; try { await request(`cards?id=eq.${button.dataset.id}`, { method: 'DELETE' }); state.cards = state.cards.filter(card => card.id !== button.dataset.id); state.totalCards = Math.max(0, state.totalCards - 1); state.seenStudyIds.delete(button.dataset.id); if (state.studyCards) { state.studyCards = state.studyCards.filter(card => card.id !== button.dataset.id); if (state.currentIndex >= state.studyCards.length) state.currentIndex = null; } render(); } catch (error) { alert(error.message); } });
 function chooseStudyCard() {
   const historySize = Math.min(3, state.studyCards.length - 1);
   const recentIds = new Set(historySize ? state.recentStudyIds.slice(-historySize) : []);
@@ -141,6 +146,7 @@ function chooseStudyCard() {
   const card = availableCards[Math.floor(Math.random() * availableCards.length)];
   state.currentIndex = state.studyCards.findIndex(item => item.id === card.id);
   state.recentStudyIds = [...state.recentStudyIds, card.id].slice(-3);
+  state.seenStudyIds.add(card.id);
 }
 function nextStudyCard() { chooseStudyCard(); render(); }
 function activateFlashcard() { if (!$('#flashcard').classList.contains('has-card')) return; $('#flashcard').classList.contains('is-flipped') ? nextStudyCard() : setCardFlipped(true); }
