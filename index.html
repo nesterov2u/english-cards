@@ -77,6 +77,11 @@
           <p>Загружаем карточки…</p>
         </div>
         <div class="study-empty" id="study-empty">Добавьте хотя бы одну карточку, чтобы начать.</div>
+        <div class="study-complete" id="study-complete" hidden>
+          <div class="seed">✦</div>
+          <h2>Все слова изучены!</h2>
+          <p>Отличная работа. Перемешайте колоду, чтобы начать заново.</p>
+        </div>
         <article class="flashcard" id="flashcard" tabindex="0" role="button" aria-label="Перевернуть карточку">
           <div class="flashcard-inner">
             <div class="card-face card-front" id="card-front" aria-hidden="false">
@@ -97,6 +102,7 @@
           <div class="study-progress-copy"><span>Показано</span><span id="study-progress-count">0 из 0</span></div>
           <div class="study-progress-track"><span id="study-progress-value"></span></div>
         </div>
+        <button class="study-shuffle" id="shuffle-study" hidden>Перемешать</button>
       </section>
 
     </main>
