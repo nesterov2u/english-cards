@@ -23,6 +23,15 @@
       .has-cards .intro-row h1 { letter-spacing: -0.8px; }
       .study-heading h1, .settings h1 { letter-spacing: -0.8px; }
       .card-face h2 { letter-spacing: -1.3px; }
+      .edit { position: absolute; top: auto; right: 13px; bottom: 13px; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: radial-gradient(circle at center, #f2f2f7 0 16px, transparent 17px); color: #8e8e93; }
+      .edit svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+      .edit:hover { color: var(--blue); }
+      .edit:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+      .remove { display: grid; place-items: center; background: radial-gradient(circle at center, #f2f2f7 0 16px, transparent 17px); font-size: 0; }
+      .remove::before, .remove::after { content: ""; position: absolute; top: 50%; left: 50%; width: 18px; height: 2px; border-radius: 2px; background: currentColor; }
+      .remove::before { transform: translate(-50%, -50%) rotate(45deg); }
+      .remove::after { transform: translate(-50%, -50%) rotate(-45deg); }
+      .word-card .definition { max-width: calc(100% - 50px); }
     </style>
   </head>
   <body>
@@ -87,8 +96,8 @@
     <dialog id="add-dialog">
       <form method="dialog" id="word-form">
         <button class="close" type="button" aria-label="Закрыть">×</button>
-        <p class="eyebrow">Новая карточка</p>
-        <h2>Что сегодня учим?</h2>
+        <p class="eyebrow" id="dialog-eyebrow">Новая карточка</p>
+        <h2 id="dialog-title">Что сегодня учим?</h2>
         <label>Слово или фраза на английском<input id="word-input" required autocomplete="off" placeholder="например, put off" /></label>
         <div class="loading" id="lookup-loading">Ищем перевод и значение…</div>
         <div class="auto-fields" id="auto-fields">

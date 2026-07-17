@@ -14,4 +14,5 @@ alter table public.cards enable row level security;
 -- Для публичного доступа нескольким пользователям замените эти политики на авторизацию.
 create policy "Public read cards" on public.cards for select using (true);
 create policy "Public add cards" on public.cards for insert with check (true);
+create policy "Public update cards" on public.cards for update using (true) with check (true);
 create policy "Public delete cards" on public.cards for delete using (true);
