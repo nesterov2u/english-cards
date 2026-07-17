@@ -103,23 +103,60 @@ function setCardFlipped(isFlipped) {
 }
 function setStudyPrompt() { $('#study-prompt').textContent = STUDY_PROMPTS[Math.floor(Math.random() * STUDY_PROMPTS.length)]; }
 function switchView(name) { document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('is-active', tab.dataset.view === name)); document.querySelectorAll('.view').forEach(view => view.classList.toggle('is-active', view.id === `${name}-view`)); if (name === 'study') { setStudyPrompt(); if (state.totalCards) loadStudyCards(); } }
-async function lookup(word) {
-  const getTranslation = async (text) => {
-    const url = new URL('https://api.mymemory.translated.net/get');
-    url.search = new URLSearchParams({ q: text, langpair: 'en|ru', mt: '1' });
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Перевод не получен.');
-    const data = await response.json();
-    return data.responseData?.translatedText || '';
-  };
+async function translateWithMyMemory(text) {
+  const url = new URL('https://api.mymemory.translated.net/get');
+  url.search = new URLSearchParams({ q: text, langpair: 'en|ru', mt: '1' });
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('Перевод не получен.');
+  const data = await response.json();
+  return data.responseData?.translatedText || '';
+}
+function getEnglishWiktionarySection(wikitext) {
+  const section = wikitext.match(/(?:^|\n)==English==\s*\n([\s\S]*?)(?=\n==[^=][^\n]*==\s*(?:\n|$)|$)/);
+  return section?.[1] || '';
+}
+function cleanWiktionaryText(text) {
+  let value = text;
+  while (/\{\{[^{}]*\}\}/.test(value)) value = value.replace(/\{\{[^{}]*\}\}/g, '');
+  return value
+    .replace(/\[\[([^\]|]*\|)?([^\]]+)\]\]/g, '$2')
+    .replace(/''+/g, '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function parseWiktionaryEntry(wikitext) {
+  const english = getEnglishWiktionarySection(wikitext);
+  const definitionMatch = english.match(/^#(?![:*])\s*(.+)$/m);
+  const translationBlock = english.match(/\{\{trans-top\|[^}]*\}\}([\s\S]*?)\{\{trans-bottom[^}]*\}\}/i);
+  const translationMatch = translationBlock?.[1].match(/\{\{t\+?\|ru\|([^|}]+)/i);
+  const definition = cleanWiktionaryText(definitionMatch?.[1] || '');
+  const translation = cleanWiktionaryText(translationMatch?.[1] || '');
+  if (!definition || !translation) throw new Error('В Wiktionary не нашлось подходящего значения.');
+  return { definition, translation };
+}
+async function lookupFromWiktionary(word) {
+  const url = new URL('https://en.wiktionary.org/w/api.php');
+  url.search = new URLSearchParams({ action: 'parse', page: word, prop: 'wikitext', format: 'json', origin: '*' });
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('Wiktionary недоступен.');
+  const data = await response.json();
+  const { definition, translation } = parseWiktionaryEntry(data.parse?.wikitext?.['*'] || '');
+  return { translation, definition: await translateWithMyMemory(definition), phonetic: '' };
+}
+async function lookupFromLegacySources(word) {
   const [translationResponse, dictionaryResponse] = await Promise.all([
-    getTranslation(word), fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`)
+    translateWithMyMemory(word), fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`)
   ]);
   let dictionary = null;
   if (dictionaryResponse.ok) dictionary = await dictionaryResponse.json();
   const meaning = dictionary?.[0]?.meanings?.[0]?.definitions?.[0];
-  const definition = meaning?.definition ? await getTranslation(meaning.definition) : '';
+  const definition = meaning?.definition ? await translateWithMyMemory(meaning.definition) : '';
   return { translation: translationResponse, definition, phonetic: dictionary?.[0]?.phonetic || dictionary?.[0]?.phonetics?.find(item => item.text)?.text || '' };
+}
+async function lookup(word) {
+  try { return await lookupFromWiktionary(word); }
+  catch { return lookupFromLegacySources(word); }
 }
 $('.tabs').addEventListener('click', event => { const tab = event.target.closest('.tab'); if (tab) switchView(tab.dataset.view); });
 $('#load-more').onclick = () => loadMoreCards().catch(error => alert(error.message));
