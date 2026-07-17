@@ -1,9 +1,15 @@
 const $ = (selector) => document.querySelector(selector);
 const DEFAULT_CONFIG = {
   url: 'https://kxpzkdrfsjusaeeipssg.supabase.co',
+  key: 'sb_publishable_2Qw0ubk0lUuOuszN0cqdPA_x_m3HZYx',
+};
+const LEGACY_DEFAULT_CONFIG = {
+  url: DEFAULT_CONFIG.url,
   key: 'sb_publishable_2Qw0ubk0IUu0uszN0cqdPA_x_m3HZYx',
 };
-const state = { cards: [], currentIndex: 0, config: JSON.parse(localStorage.getItem('wordGardenConfig') || 'null') || DEFAULT_CONFIG };
+const savedConfig = JSON.parse(localStorage.getItem('wordGardenConfig') || 'null');
+const config = savedConfig?.url === LEGACY_DEFAULT_CONFIG.url && savedConfig?.key === LEGACY_DEFAULT_CONFIG.key ? DEFAULT_CONFIG : savedConfig || DEFAULT_CONFIG;
+const state = { cards: [], currentIndex: 0, config };
 
 function apiHeaders() { return { apikey: state.config.key, Authorization: `Bearer ${state.config.key}`, 'Content-Type': 'application/json' }; }
 async function request(path, options = {}) {
