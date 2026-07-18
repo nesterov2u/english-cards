@@ -9,6 +9,8 @@ const STUDY_PROMPTS = ['Одно слово — уже шаг.', 'Повторе
 const state = { cards: [], studyCards: null, totalCards: 0, isLoadingMore: false, isStudyLoading: false, currentIndex: null, recentStudyIds: [], seenStudyIds: new Set(), studyQueue: [], isStudyComplete: false, config };
 let ignoreFlashcardClickUntil = 0;
 let studyLoadPromise = null;
+let addSuccessTimer = null;
+let addSuccessHideTimer = null;
 
 function apiHeaders() { return { apikey: state.config.key, Authorization: `Bearer ${state.config.key}`, 'Content-Type': 'application/json' }; }
 function setSyncStatus(isConnected, message) { $('#sync-status').classList.toggle('is-connected', isConnected); $('#sync-status').classList.toggle('is-disconnected', !isConnected); $('#sync-status').setAttribute('aria-label', message); $('#sync-status').title = message; }
@@ -192,6 +194,20 @@ async function lookup(word) {
 $('.tabs').addEventListener('click', event => { const tab = event.target.closest('.tab'); if (tab) switchView(tab.dataset.view); });
 $('#load-more').onclick = () => loadMoreCards().catch(error => alert(error.message));
 function getCardFromForm(prefix, form) { return { word: $(`#${prefix}-word-input`).value.trim(), translation: $(`#${prefix}-translation-input`).value.trim(), definition: $(`#${prefix}-definition-input`).value.trim(), phonetic: form.dataset.phonetic || '' }; }
+function showAddSuccess() {
+  const message = $('#add-success');
+  clearTimeout(addSuccessTimer);
+  clearTimeout(addSuccessHideTimer);
+  message.classList.remove('is-leaving');
+  message.hidden = false;
+  addSuccessTimer = setTimeout(() => {
+    message.classList.add('is-leaving');
+    addSuccessHideTimer = setTimeout(() => {
+      message.hidden = true;
+      message.classList.remove('is-leaving');
+    }, 250);
+  }, 1200);
+}
 async function fillCardFields(prefix, form) {
   const word = $(`#${prefix}-word-input`).value.trim();
   if (!word) return;
@@ -241,7 +257,8 @@ $('#edit-word-input').addEventListener('change', () => fillCardFields('edit', $(
 $('#add-word-form').addEventListener('submit', async event => {
   event.preventDefault();
   const form = event.currentTarget;
-  try { await persistCard(getCardFromForm('add', form)); form.reset(); form.dataset.phonetic = ''; } catch (error) { alert(error.message); }
+  const card = getCardFromForm('add', form);
+  try { await persistCard(card); form.reset(); form.dataset.phonetic = ''; showAddSuccess(); } catch (error) { alert(error.message); }
 });
 $('#edit-word-form').addEventListener('submit', async event => {
   event.preventDefault();

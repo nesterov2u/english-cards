@@ -16,13 +16,13 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
     <style>
-      .brand { letter-spacing: -0.3px; }
+      .brand { letter-spacing: 0; }
       .brand-mark { width: 34px; height: 34px; }
-      h1 { letter-spacing: -1.5px; }
-      h2 { letter-spacing: -0.4px; }
-      .has-cards .intro-row h1 { letter-spacing: -0.8px; }
-      .study-heading h1, .settings h1 { letter-spacing: -0.8px; }
-      .card-face h2 { letter-spacing: -1.3px; }
+      h1 { letter-spacing: -0.5px; }
+      h2 { letter-spacing: -0.5px; }
+      .has-cards .intro-row h1 { letter-spacing: -0.5px; }
+      .study-heading h1, .settings h1 { letter-spacing: -0.5px; }
+      .card-face h2 { letter-spacing: -0.5px; }
       .edit { position: absolute; top: auto; right: 13px; bottom: 13px; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: radial-gradient(circle at center, #f2f2f7 0 16px, transparent 17px); color: #8e8e93; }
       .edit svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
       .edit:hover { color: var(--blue); }
@@ -36,9 +36,9 @@
   </head>
   <body>
     <div class="app-loader" id="app-loader" role="status" aria-live="polite">
-      <span class="loader-mark" aria-hidden="true"></span>
-      <p>Загружаем коллекцию</p>
+      <p class="splash-title">English Cards</p>
     </div>
+    <div class="success-splash" id="add-success" role="status" aria-live="polite" hidden>Слово добавлено</div>
     <main class="app-shell">
       <header>
         <a class="brand" href="#" aria-label="English Cards"><img class="brand-mark" src="logo-outline.svg" alt="" /></a>
