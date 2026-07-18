@@ -125,6 +125,33 @@ function cleanWiktionaryText(text) {
     .replace(/\s+/g, ' ')
     .trim();
 }
+function extractGrammarDescription(html, word) {
+  const content = document.createElement('div');
+  content.innerHTML = html;
+  const heading = [...content.querySelectorAll('h3')].find(item => /(?:Тип|Морфологические) и синтаксические свойства/.test(item.textContent));
+  const section = heading?.closest('.mw-heading');
+  if (!section) return '';
+  const normalizedWord = word.replace(/\s+/g, ' ').trim().toLowerCase();
+  let current = section.nextElementSibling;
+  while (current && !current.matches('.mw-heading')) {
+    if (current.matches('p')) {
+      const text = current.textContent.replace(/\s+/g, ' ').trim();
+      if (text && text.toLowerCase() !== normalizedWord) return text;
+    }
+    current = current.nextElementSibling;
+  }
+  return '';
+}
+async function lookupGrammarDescription(word) {
+  try {
+    const url = new URL('https://ru.wiktionary.org/w/api.php');
+    url.search = new URLSearchParams({ action: 'parse', page: word, prop: 'text', format: 'json', origin: '*' });
+    const response = await fetch(url);
+    if (!response.ok) return '';
+    const data = await response.json();
+    return extractGrammarDescription(data.parse?.text?.['*'] || '', word);
+  } catch { return ''; }
+}
 function parseWiktionaryEntry(wikitext) {
   const english = getEnglishWiktionarySection(wikitext);
   const definitionMatch = english.match(/^#(?![:*])\s*(.+)$/m);
@@ -141,8 +168,8 @@ async function lookupFromWiktionary(word) {
   const response = await fetch(url);
   if (!response.ok) throw new Error('Wiktionary недоступен.');
   const data = await response.json();
-  const { definition, translation } = parseWiktionaryEntry(data.parse?.wikitext?.['*'] || '');
-  return { translation, definition: await translateWithMyMemory(definition), phonetic: '' };
+  const { translation } = parseWiktionaryEntry(data.parse?.wikitext?.['*'] || '');
+  return { translation, phonetic: '' };
 }
 async function lookupFromLegacySources(word) {
   const [translationResponse, dictionaryResponse] = await Promise.all([
@@ -150,13 +177,17 @@ async function lookupFromLegacySources(word) {
   ]);
   let dictionary = null;
   if (dictionaryResponse.ok) dictionary = await dictionaryResponse.json();
-  const meaning = dictionary?.[0]?.meanings?.[0]?.definitions?.[0];
-  const definition = meaning?.definition ? await translateWithMyMemory(meaning.definition) : '';
-  return { translation: translationResponse, definition, phonetic: dictionary?.[0]?.phonetic || dictionary?.[0]?.phonetics?.find(item => item.text)?.text || '' };
+  return { translation: translationResponse, phonetic: dictionary?.[0]?.phonetic || dictionary?.[0]?.phonetics?.find(item => item.text)?.text || '' };
 }
 async function lookup(word) {
-  try { return await lookupFromWiktionary(word); }
-  catch { return lookupFromLegacySources(word); }
+  const grammarDescription = lookupGrammarDescription(word);
+  try {
+    const result = await lookupFromWiktionary(word);
+    return { ...result, definition: await grammarDescription };
+  } catch {
+    const result = await lookupFromLegacySources(word);
+    return { ...result, definition: await grammarDescription };
+  }
 }
 $('.tabs').addEventListener('click', event => { const tab = event.target.closest('.tab'); if (tab) switchView(tab.dataset.view); });
 $('#load-more').onclick = () => loadMoreCards().catch(error => alert(error.message));

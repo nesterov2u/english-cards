@@ -25,8 +25,8 @@ python3 -m http.server 4173
 
 Подключение к общей базе уже задано в `app.js`. Для новой базы выполните [`supabase/schema.sql`](supabase/schema.sql) в Supabase SQL Editor и используйте только publishable/anon key.
 
-- Первый источник — Wiktionary: перевод и английское определение берутся из одного значения статьи; определение отображается по-русски через MyMemory.
-- Если Wiktionary не даёт пригодной пары, используется fallback: MyMemory для перевода и Dictionary API для определения и транскрипции.
+- Английский Wiktionary — первичный источник перевода; MyMemory и Dictionary API используются как fallback для перевода и транскрипции.
+- Описание — грамматическая характеристика из русского Wiktionary. Если подходящего блока нет, описание остаётся пустым.
 - В таблице `public.cards` используются `id`, `word`, `translation`, `definition`, `phonetic`, `created_at`.
 
 ## Публикация
