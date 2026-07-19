@@ -59,11 +59,11 @@
         <div class="translate-panel">
           <p class="eyebrow">Новая карточка</p>
           <h1>Перевод</h1>
-          <form id="add-word-form">
-            <label>Слово или фраза на английском<input id="add-word-input" required autocomplete="off" placeholder="например, put off" /></label>
+          <form id="add-word-form" novalidate>
+            <label>Слово или фраза на английском<input id="add-word-input" required autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="например, put off" /><span class="field-warning" role="alert" hidden></span></label>
             <div class="loading" id="add-lookup-loading">Ищем перевод и значение…</div>
             <div class="auto-fields show" id="add-auto-fields">
-              <label>Перевод<input id="add-translation-input" required /></label>
+              <label>Перевод<input id="add-translation-input" required /><span class="field-warning" role="alert" hidden></span></label>
               <label>Описание<textarea id="add-definition-input" rows="4"></textarea></label>
             </div>
             <button class="add-button add-outline wide" id="add-save-word" type="submit">Добавить</button>
@@ -123,13 +123,13 @@
     </main>
 
     <dialog id="edit-dialog">
-      <form id="edit-word-form">
+      <form id="edit-word-form" novalidate>
         <button class="close" type="button" aria-label="Закрыть">×</button>
         <p class="eyebrow">Редактирование карточки</p>
-        <label>Слово или фраза на английском<input id="edit-word-input" required autocomplete="off" /></label>
+        <label>Слово или фраза на английском<input id="edit-word-input" required autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" /><span class="field-warning" role="alert" hidden></span></label>
         <div class="loading" id="edit-lookup-loading">Ищем перевод и значение…</div>
         <div class="auto-fields show" id="edit-auto-fields">
-          <label>Перевод<input id="edit-translation-input" required /></label>
+          <label>Перевод<input id="edit-translation-input" required /><span class="field-warning" role="alert" hidden></span></label>
           <label>Описание<textarea id="edit-definition-input" rows="3"></textarea></label>
         </div>
         <button class="add-button add-outline wide" id="edit-save-word" type="submit">Сохранить изменения</button>

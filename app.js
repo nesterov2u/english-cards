@@ -214,12 +214,12 @@ function scheduleLookup(prefix, form) {
   clearTimeout(lookupTimers[prefix]);
   lookupControllers[prefix]?.abort();
   const word = $(`#${prefix}-word-input`).value.trim();
-  if (word.length < 3) return;
+  if (word.length < 2) return;
   lookupTimers[prefix] = setTimeout(() => fillCardFields(prefix, form), 500);
 }
 async function fillCardFields(prefix, form) {
   const word = $(`#${prefix}-word-input`).value.trim();
-  if (word.length < 3) return;
+  if (word.length < 2) return;
   const saveButton = $(`#${prefix}-save-word`);
   const controller = new AbortController();
   lookupControllers[prefix] = controller;
@@ -265,18 +265,45 @@ function openEditDialog(card) {
   $('#edit-dialog').showModal();
   $('#edit-word-input').focus();
 }
+function validateRequiredFields(form) {
+  form.querySelectorAll('.field-warning').forEach(warning => { warning.hidden = true; });
+  form.querySelectorAll('[required]').forEach(field => field.classList.remove('is-invalid'));
+  const missing = [...form.querySelectorAll('[required]')].find(field => !field.value.trim());
+  if (!missing) return true;
+  missing.classList.add('is-invalid');
+  const warning = missing.closest('label')?.querySelector('.field-warning');
+  if (warning) { warning.textContent = 'Заполните это поле.'; warning.hidden = false; }
+  missing.focus();
+  return false;
+}
+function clearFieldWarning(field) {
+  field.classList.remove('is-invalid');
+  const warning = field.closest('label')?.querySelector('.field-warning');
+  if (warning) warning.hidden = true;
+}
 $('.close').onclick = () => $('#edit-dialog').close();
-$('#add-word-input').addEventListener('input', () => scheduleLookup('add', $('#add-word-form')));
-$('#edit-word-input').addEventListener('input', () => scheduleLookup('edit', $('#edit-word-form')));
+function normalizeWordInput(input) {
+  const normalized = input.value.toLowerCase();
+  if (input.value !== normalized) input.value = normalized;
+}
+$('#add-word-input').addEventListener('input', event => { normalizeWordInput(event.target); scheduleLookup('add', $('#add-word-form')); });
+$('#edit-word-input').addEventListener('input', event => { normalizeWordInput(event.target); scheduleLookup('edit', $('#edit-word-form')); });
+['#add-word-form', '#edit-word-form'].forEach(selector => {
+  $(selector).addEventListener('input', event => {
+    if (event.target.matches('[required]')) clearFieldWarning(event.target);
+  });
+});
 $('#add-word-form').addEventListener('submit', async event => {
   event.preventDefault();
   const form = event.currentTarget;
+  if (!validateRequiredFields(form)) return;
   const card = getCardFromForm('add', form);
   try { await persistCard(card); form.reset(); form.dataset.phonetic = ''; showAddSuccess(); } catch (error) { alert(error.message); }
 });
 $('#edit-word-form').addEventListener('submit', async event => {
   event.preventDefault();
   const form = event.currentTarget;
+  if (!validateRequiredFields(form)) return;
   try { await persistCard(getCardFromForm('edit', form), form.dataset.editingId); $('#edit-dialog').close(); } catch (error) { alert(error.message); }
 });
 $('#cards-list').addEventListener('click', async event => { const editButton = event.target.closest('.edit'); if (editButton) { openEditDialog(state.cards.find(card => card.id === editButton.dataset.id)); return; } const button = event.target.closest('.remove'); if (!button || !confirm('Удалить карточку?')) return; try { await request(`cards?id=eq.${button.dataset.id}`, { method: 'DELETE' }); state.cards = state.cards.filter(card => card.id !== button.dataset.id); state.totalCards = Math.max(0, state.totalCards - 1); state.seenStudyIds.delete(button.dataset.id); state.studyQueue = state.studyQueue.filter(id => id !== button.dataset.id); if (state.studyCards) { state.studyCards = state.studyCards.filter(card => card.id !== button.dataset.id); if (!state.studyCards.length) state.isStudyComplete = false; if (state.currentIndex >= state.studyCards.length) state.currentIndex = null; } render(); } catch (error) { alert(error.message); } });
