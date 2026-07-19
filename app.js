@@ -133,14 +133,18 @@ function getWiktionaryPartOfSpeechSections(english, parts) {
   return getWiktionaryPartOfSpeechEntries(english, parts).map(entry => entry.content);
 }
 function getWiktionaryVerbSection(english) {
-  const sections = getWiktionaryPartOfSpeechSections(english, 'Verb');
-  return sections.find(section => /\{\{trans-(?:top|see)/i.test(section)) || sections.at(-1) || '';
+  return getWiktionaryTranslatableEntries(english).find(entry => entry.part.toLowerCase() === 'verb')?.content || '';
 }
 function hasWiktionaryTranslationReference(section) {
   return /\{\{trans-(?:top|see)/i.test(section);
 }
+function getWiktionaryTranslatableEntries(english) {
+  return getWiktionaryPartOfSpeechEntries(english).filter(entry =>
+    hasWiktionaryTranslationReference(entry.content) && getWiktionaryTranslation(entry.content)
+  );
+}
 function getPreferredWiktionarySection(english, word = '', preferVerb = false) {
-  const entries = getWiktionaryPartOfSpeechEntries(english);
+  const entries = getWiktionaryTranslatableEntries(english);
   const verb = getWiktionaryVerbSection(english);
   const coreVerbs = new Set(['be', 'do', 'go', 'have', 'make', 'take', 'get', 'give', 'come', 'know', 'think', 'see', 'want', 'use', 'find', 'tell', 'ask', 'work', 'seem', 'feel', 'try', 'leave', 'call']);
   const lemma = getWiktionaryLemma(english, word);
@@ -155,7 +159,7 @@ function getPreferredWiktionarySection(english, word = '', preferVerb = false) {
     const entry = entries.find(item => item.part.toLowerCase() === part.toLowerCase());
     if (entry) return entry.content;
   }
-  return entries.find(entry => getWiktionaryTranslation(entry.content))?.content || entries[0]?.content || english;
+  return entries[0]?.content || '';
 }
 function decodeHtmlEntities(text) {
   const element = document.createElement('textarea');
@@ -255,6 +259,13 @@ async function searchWiktionaryTitles(word, signal) {
     return [];
   }
 }
+function normalizeWiktionarySearchTitle(value) {
+  return value.toLocaleLowerCase('en').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[\s.'’_-]+/g, '');
+}
+function isCompatibleWiktionarySearchTitle(title, word) {
+  const normalizedWord = normalizeWiktionarySearchTitle(word);
+  return normalizedWord && normalizeWiktionarySearchTitle(title) === normalizedWord;
+}
 async function lookupFromWiktionary(word, signal, lookedUp = new Set(), canSearch = true, preferVerb = false) {
   if (lookedUp.has(word)) throw new Error('Перевод не найден. Попробуйте другое слово или добавьте перевод вручную.');
   const visited = new Set(lookedUp).add(word);
@@ -271,7 +282,6 @@ async function lookupFromWiktionary(word, signal, lookedUp = new Set(), canSearc
   const data = await response.json();
   const wikitext = data.parse?.wikitext?.['*'] || '';
   const allEnglish = getEnglishWiktionarySection(wikitext);
-  const english = getPreferredWiktionarySection(allEnglish, word, preferVerb);
   const entry = parseWiktionaryEntry(wikitext, word, preferVerb);
   let translation = entry.translation;
   const lemma = getWiktionaryLemma(allEnglish, word);
@@ -290,6 +300,7 @@ async function lookupFromWiktionary(word, signal, lookedUp = new Set(), canSearc
   if (!translation && canSearch) {
     const titles = await searchWiktionaryTitles(word, signal);
     for (const title of titles) {
+      if (!isCompatibleWiktionarySearchTitle(title, word)) continue;
       if (visited.has(title.toLowerCase())) continue;
       try {
         return await lookupFromWiktionary(title, signal, visited, false, preferVerb);
