@@ -156,7 +156,7 @@ async function lookupGrammarDescription(word, signal) {
     return extractGrammarDescription(data.parse?.text?.['*'] || '', word);
   } catch { return ''; }
 }
-function parseWiktionaryEntry(wikitext) {
+function parseWiktionaryEntry(wikitext, word) {
   const english = getEnglishWiktionarySection(wikitext);
   const definitionMatch = english.match(/^#(?![:*])\s*(.+)$/m);
   const translationBlock = english.match(/\{\{trans-top\|[^}]*\}\}([\s\S]*?)\{\{trans-bottom[^}]*\}\}/i);
@@ -164,7 +164,40 @@ function parseWiktionaryEntry(wikitext) {
   const definition = cleanWiktionaryText(definitionMatch?.[1] || '');
   const translation = cleanWiktionaryText(translationMatch?.[1] || '');
   if (!definition || !translation) throw new Error('В Wiktionary не нашлось подходящего значения.');
-  return { definition, translation };
+  return { definition, translation, irregularForms: extractIrregularVerbForms(english, word) };
+}
+function regularPastForm(word) {
+  if (!/^[a-z]+$/.test(word)) return '';
+  if (word.endsWith('e')) return `${word}d`;
+  if (/[^aeiou]y$/.test(word)) return `${word.slice(0, -1)}ied`;
+  return `${word}ed`;
+}
+function normalizeVerbForm(value, word, previous = '') {
+  let form = value.replace(/<[^>]*>|\[[^\]]*\]/g, '').split(',')[0].split(':')[0].trim();
+  if (!form || form === '-') return '';
+  if (form.startsWith('+')) return previous || word;
+  if (form.startsWith('~')) form = `${word}${form.slice(1)}`;
+  return cleanWiktionaryText(form).trim().toLowerCase();
+}
+function extractIrregularVerbForms(english, sourceWord) {
+  const word = sourceWord.toLowerCase();
+  if (word === 'be') return ['was/were', 'been'];
+  const template = english.match(/\{\{en-verb\|([^{}]+)\}\}/i)?.[1];
+  if (!template) return [];
+  if (!word) return [];
+  const compact = template.match(/^[^|<]+<([^>]+)>/);
+  const parts = (compact ? compact[1].split(',') : template.split('|')).map(part => part.trim());
+  const pastIndex = compact ? 2 : parts.length >= 4 ? 2 : 2;
+  const participleIndex = compact ? 3 : parts.length >= 4 ? 3 : 2;
+  const past = normalizeVerbForm(parts[pastIndex] || '', word);
+  const participle = normalizeVerbForm(parts[participleIndex] || '', word, past);
+  const regular = regularPastForm(word);
+  if (!past || !participle || (past === regular && participle === regular)) return [];
+  return [...new Set([past, participle])];
+}
+function appendIrregularForms(description, forms) {
+  if (!forms.length) return description;
+  return [description, `Неправильные формы: ${forms.join(', ')}.`].filter(Boolean).join(' ');
 }
 async function lookupFromWiktionary(word, signal) {
   const url = new URL('https://en.wiktionary.org/w/api.php');
@@ -172,8 +205,8 @@ async function lookupFromWiktionary(word, signal) {
   const response = await fetch(url, { signal });
   if (!response.ok) throw new Error('Wiktionary недоступен.');
   const data = await response.json();
-  const { translation } = parseWiktionaryEntry(data.parse?.wikitext?.['*'] || '');
-  return { translation, phonetic: '' };
+  const { translation, irregularForms } = parseWiktionaryEntry(data.parse?.wikitext?.['*'] || '', word);
+  return { translation, phonetic: '', irregularForms };
 }
 async function lookupFromLegacySources(word, signal) {
   const [translationResponse, dictionaryResponse] = await Promise.all([
@@ -187,7 +220,7 @@ async function lookup(word, signal) {
   const grammarDescription = lookupGrammarDescription(word, signal);
   try {
     const result = await lookupFromWiktionary(word, signal);
-    return { ...result, definition: await grammarDescription };
+    return { ...result, definition: appendIrregularForms(await grammarDescription, result.irregularForms || []) };
   } catch {
     const result = await lookupFromLegacySources(word, signal);
     return { ...result, definition: await grammarDescription };
