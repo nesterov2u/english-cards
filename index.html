@@ -36,9 +36,13 @@
   </head>
   <body>
     <div class="app-loader" id="app-loader" role="status" aria-live="polite">
+      <img class="splash-mark" src="logo-outline.svg" alt="" aria-hidden="true" />
       <p class="splash-title">English Cards</p>
     </div>
-    <div class="success-splash" id="add-success" role="status" aria-live="polite" hidden>Слово добавлено</div>
+    <div class="success-toast" id="add-success" role="status" aria-live="polite" hidden>
+      <span class="success-check" aria-hidden="true"></span>
+      <span>Слово добавлено</span>
+    </div>
     <main class="app-shell">
       <header>
         <a class="brand" href="#" aria-label="English Cards"><img class="brand-mark" src="logo-outline.svg" alt="" /></a>

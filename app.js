@@ -11,6 +11,8 @@ let ignoreFlashcardClickUntil = 0;
 let studyLoadPromise = null;
 let addSuccessTimer = null;
 let addSuccessHideTimer = null;
+const lookupTimers = {};
+const lookupControllers = {};
 
 function apiHeaders() { return { apikey: state.config.key, Authorization: `Bearer ${state.config.key}`, 'Content-Type': 'application/json' }; }
 function setSyncStatus(isConnected, message) { $('#sync-status').classList.toggle('is-connected', isConnected); $('#sync-status').classList.toggle('is-disconnected', !isConnected); $('#sync-status').setAttribute('aria-label', message); $('#sync-status').title = message; }
@@ -105,10 +107,10 @@ function setCardFlipped(isFlipped) {
 }
 function setStudyPrompt() { $('#study-prompt').textContent = STUDY_PROMPTS[Math.floor(Math.random() * STUDY_PROMPTS.length)]; }
 function switchView(name) { document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('is-active', tab.dataset.view === name)); document.querySelectorAll('.view').forEach(view => view.classList.toggle('is-active', view.id === `${name}-view`)); if (name === 'study') { setStudyPrompt(); if (state.totalCards) loadStudyCards(); } }
-async function translateWithMyMemory(text) {
+async function translateWithMyMemory(text, signal) {
   const url = new URL('https://api.mymemory.translated.net/get');
   url.search = new URLSearchParams({ q: text, langpair: 'en|ru', mt: '1' });
-  const response = await fetch(url);
+  const response = await fetch(url, { signal });
   if (!response.ok) throw new Error('Перевод не получен.');
   const data = await response.json();
   return data.responseData?.translatedText || '';
@@ -144,11 +146,11 @@ function extractGrammarDescription(html, word) {
   }
   return '';
 }
-async function lookupGrammarDescription(word) {
+async function lookupGrammarDescription(word, signal) {
   try {
     const url = new URL('https://ru.wiktionary.org/w/api.php');
     url.search = new URLSearchParams({ action: 'parse', page: word, prop: 'text', format: 'json', origin: '*' });
-    const response = await fetch(url);
+    const response = await fetch(url, { signal });
     if (!response.ok) return '';
     const data = await response.json();
     return extractGrammarDescription(data.parse?.text?.['*'] || '', word);
@@ -164,30 +166,30 @@ function parseWiktionaryEntry(wikitext) {
   if (!definition || !translation) throw new Error('В Wiktionary не нашлось подходящего значения.');
   return { definition, translation };
 }
-async function lookupFromWiktionary(word) {
+async function lookupFromWiktionary(word, signal) {
   const url = new URL('https://en.wiktionary.org/w/api.php');
   url.search = new URLSearchParams({ action: 'parse', page: word, prop: 'wikitext', format: 'json', origin: '*' });
-  const response = await fetch(url);
+  const response = await fetch(url, { signal });
   if (!response.ok) throw new Error('Wiktionary недоступен.');
   const data = await response.json();
   const { translation } = parseWiktionaryEntry(data.parse?.wikitext?.['*'] || '');
   return { translation, phonetic: '' };
 }
-async function lookupFromLegacySources(word) {
+async function lookupFromLegacySources(word, signal) {
   const [translationResponse, dictionaryResponse] = await Promise.all([
-    translateWithMyMemory(word), fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`)
+    translateWithMyMemory(word, signal), fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`, { signal })
   ]);
   let dictionary = null;
   if (dictionaryResponse.ok) dictionary = await dictionaryResponse.json();
   return { translation: translationResponse, phonetic: dictionary?.[0]?.phonetic || dictionary?.[0]?.phonetics?.find(item => item.text)?.text || '' };
 }
-async function lookup(word) {
-  const grammarDescription = lookupGrammarDescription(word);
+async function lookup(word, signal) {
+  const grammarDescription = lookupGrammarDescription(word, signal);
   try {
-    const result = await lookupFromWiktionary(word);
+    const result = await lookupFromWiktionary(word, signal);
     return { ...result, definition: await grammarDescription };
   } catch {
-    const result = await lookupFromLegacySources(word);
+    const result = await lookupFromLegacySources(word, signal);
     return { ...result, definition: await grammarDescription };
   }
 }
@@ -205,25 +207,37 @@ function showAddSuccess() {
     addSuccessHideTimer = setTimeout(() => {
       message.hidden = true;
       message.classList.remove('is-leaving');
-    }, 250);
-  }, 1200);
+    }, 160);
+  }, 950);
+}
+function scheduleLookup(prefix, form) {
+  clearTimeout(lookupTimers[prefix]);
+  lookupControllers[prefix]?.abort();
+  const word = $(`#${prefix}-word-input`).value.trim();
+  if (word.length < 3) return;
+  lookupTimers[prefix] = setTimeout(() => fillCardFields(prefix, form), 500);
 }
 async function fillCardFields(prefix, form) {
   const word = $(`#${prefix}-word-input`).value.trim();
-  if (!word) return;
+  if (word.length < 3) return;
   const saveButton = $(`#${prefix}-save-word`);
+  const controller = new AbortController();
+  lookupControllers[prefix] = controller;
   saveButton.disabled = true;
   $(`#${prefix}-lookup-loading`).classList.add('show');
   try {
-    const data = await lookup(word);
+    const data = await lookup(word, controller.signal);
+    if (controller.signal.aborted || $(`#${prefix}-word-input`).value.trim() !== word) return;
     $(`#${prefix}-translation-input`).value = data.translation;
     $(`#${prefix}-definition-input`).value = data.definition;
     form.dataset.phonetic = data.phonetic;
   } catch (error) {
-    alert(`${error.message} Заполните перевод вручную.`);
+    if (error.name !== 'AbortError') alert(`${error.message} Заполните перевод вручную.`);
   } finally {
-    saveButton.disabled = false;
-    $(`#${prefix}-lookup-loading`).classList.remove('show');
+    if (lookupControllers[prefix] === controller) {
+      saveButton.disabled = false;
+      $(`#${prefix}-lookup-loading`).classList.remove('show');
+    }
   }
 }
 async function persistCard(card, editingId = '') {
@@ -252,8 +266,8 @@ function openEditDialog(card) {
   $('#edit-word-input').focus();
 }
 $('.close').onclick = () => $('#edit-dialog').close();
-$('#add-word-input').addEventListener('change', () => fillCardFields('add', $('#add-word-form')));
-$('#edit-word-input').addEventListener('change', () => fillCardFields('edit', $('#edit-word-form')));
+$('#add-word-input').addEventListener('input', () => scheduleLookup('add', $('#add-word-form')));
+$('#edit-word-input').addEventListener('input', () => scheduleLookup('edit', $('#edit-word-form')));
 $('#add-word-form').addEventListener('submit', async event => {
   event.preventDefault();
   const form = event.currentTarget;
