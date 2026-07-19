@@ -83,7 +83,7 @@ function render() {
   $('#word-count').textContent = state.totalCards;
   $('#library-view').classList.toggle('has-cards', state.totalCards > 0);
   $('#empty-state').style.display = state.totalCards ? 'none' : 'block';
-  $('#cards-list').innerHTML = state.cards.map(card => `<article class="word-card"><button class="edit" data-id="${card.id}" aria-label="Редактировать"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.4-1 10.1-10.1a2.1 2.1 0 0 0-3-3L5.4 15.9 4 20Z" /><path d="m13.9 7.5 3 3" /></svg></button><button class="remove" data-id="${card.id}" aria-label="Удалить">×</button><h2>${escapeHtml(card.word)}</h2><p class="translation">${escapeHtml(card.translation)}</p><p class="definition">${escapeHtml(card.definition || '')}</p></article>`).join('');
+  $('#cards-list').innerHTML = state.cards.map(card => `<article class="word-card"><button class="edit" data-id="${card.id}" aria-label="Редактировать"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.4-1 10.1-10.1a2.1 2.1 0 0 0-3-3L5.4 15.9 4 20Z" /><path d="m13.9 7.5 3 3" /></svg></button><button class="remove" data-id="${card.id}" aria-label="Удалить">×</button><h2>${escapeHtml(card.word)}</h2><p class="translation">${escapeHtml(card.translation)}</p><p class="examples">${escapeHtml(card.examples || '')}</p><p class="synonyms">${card.synonyms ? `Синонимы: ${escapeHtml(card.synonyms)}` : ''}</p></article>`).join('');
   $('#load-more').hidden = state.cards.length >= state.totalCards || state.totalCards === 0;
   $('#load-more').disabled = state.isLoadingMore;
   $('#load-more').textContent = state.isLoadingMore ? 'Загружаем…' : 'Показать ещё';
@@ -97,7 +97,7 @@ function render() {
   $('#study-progress-count').textContent = `${shownStudyCards} из ${totalStudyCards}`;
   $('#study-progress-value').style.width = totalStudyCards ? `${shownStudyCards / totalStudyCards * 100}%` : '0%';
   $('#shuffle-study').hidden = !totalStudyCards;
-  if (card) { const definition = card.definition || ''; $('#study-word').textContent = card.word; $('#study-phonetic').textContent = card.phonetic || ''; $('#study-translation').textContent = card.translation; $('#study-definition').textContent = definition; $('#card-back').classList.toggle('has-long-definition', definition.length > 110); fitStudyHeading($('#study-word')); fitStudyHeading($('#study-translation')); setCardFlipped(false); }
+  if (card) { const examples = card.examples || ''; const synonyms = card.synonyms ? `Синонимы: ${card.synonyms}` : ''; $('#study-word').textContent = card.word; $('#study-phonetic').textContent = card.phonetic || ''; $('#study-translation').textContent = card.translation; $('#study-examples').textContent = [examples, synonyms].filter(Boolean).join('\n'); $('#card-back').classList.toggle('has-long-definition', `${examples} ${synonyms}`.length > 110); fitStudyHeading($('#study-word')); fitStudyHeading($('#study-translation')); setCardFlipped(false); }
 }
 function setCardFlipped(isFlipped) {
   $('#flashcard').classList.toggle('is-flipped', isFlipped);
@@ -107,64 +107,66 @@ function setCardFlipped(isFlipped) {
 }
 function setStudyPrompt() { $('#study-prompt').textContent = STUDY_PROMPTS[Math.floor(Math.random() * STUDY_PROMPTS.length)]; }
 function switchView(name) { document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('is-active', tab.dataset.view === name)); document.querySelectorAll('.view').forEach(view => view.classList.toggle('is-active', view.id === `${name}-view`)); if (name === 'study') { setStudyPrompt(); if (state.totalCards) loadStudyCards(); } }
-async function translateWithMyMemory(text, signal) {
-  const url = new URL('https://api.mymemory.translated.net/get');
-  url.search = new URLSearchParams({ q: text, langpair: 'en|ru', mt: '1' });
-  const response = await fetch(url, { signal });
-  if (!response.ok) throw new Error('Перевод не получен.');
-  const data = await response.json();
-  return data.responseData?.translatedText || '';
-}
 function getEnglishWiktionarySection(wikitext) {
   const section = wikitext.match(/(?:^|\n)==English==\s*\n([\s\S]*?)(?=\n==[^=][^\n]*==\s*(?:\n|$)|$)/);
   return section?.[1] || '';
 }
+function getWiktionaryPartOfSpeechSections(english, parts = 'Noun|Verb|Adjective|Adverb|Pronoun|Preposition|Conjunction|Interjection|Determiner|Article|Numeral|Proper noun') {
+  const lines = english.split('\n');
+  const sections = [];
+  const headingPattern = new RegExp(`^(={3,})(?:${parts})\\1\\s*$`, 'i');
+  for (let start = 0; start < lines.length; start += 1) {
+    const heading = lines[start].match(headingPattern);
+    if (!heading) continue;
+    const level = heading[1].length;
+    let end = start + 1;
+    while (end < lines.length) {
+      const nextHeading = lines[end].match(/^(={3,})[^=].*?\1\s*$/);
+      if (nextHeading && nextHeading[1].length <= level) break;
+      end += 1;
+    }
+    sections.push(lines.slice(start + 1, end).join('\n'));
+  }
+  return sections;
+}
+function getWiktionaryVerbSection(english) {
+  const sections = getWiktionaryPartOfSpeechSections(english, 'Verb');
+  return sections.find(section => /\{\{trans-(?:top|see)/i.test(section)) || sections.at(-1) || '';
+}
+function getPreferredWiktionarySection(english, word = '') {
+  const sections = getWiktionaryPartOfSpeechSections(english);
+  const verb = getWiktionaryVerbSection(english);
+  if (verb && extractIrregularVerbForms(verb, word).length) return verb;
+  return sections.find(section => getWiktionaryTranslation(section)) || sections[0] || english;
+}
+function decodeHtmlEntities(text) {
+  const element = document.createElement('textarea');
+  element.innerHTML = text;
+  return element.value;
+}
+function getWiktionaryTranslation(section) {
+  const blocks = [...section.matchAll(/\{\{trans-top(?:-see)?\|[^}]*\}\}([\s\S]*?)\{\{trans-bottom[^}]*\}\}/gi)];
+  for (const block of blocks) {
+    const translation = cleanWiktionaryText(block[1].match(/\{\{(?:t|tt)\+?\|ru\|([^|}]+)/i)?.[1] || '');
+    if (translation) return translation;
+  }
+  return '';
+}
 function cleanWiktionaryText(text) {
   let value = text;
   while (/\{\{[^{}]*\}\}/.test(value)) value = value.replace(/\{\{[^{}]*\}\}/g, '');
-  return value
+  return decodeHtmlEntities(value)
     .replace(/\[\[([^\]|]*\|)?([^\]]+)\]\]/g, '$2')
     .replace(/''+/g, '')
     .replace(/<[^>]*>/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
-function extractGrammarDescription(html, word) {
-  const content = document.createElement('div');
-  content.innerHTML = html;
-  const heading = [...content.querySelectorAll('h3')].find(item => /(?:Тип|Морфологические) и синтаксические свойства/.test(item.textContent));
-  const section = heading?.closest('.mw-heading');
-  if (!section) return '';
-  const normalizedWord = word.replace(/\s+/g, ' ').trim().toLowerCase();
-  let current = section.nextElementSibling;
-  while (current && !current.matches('.mw-heading')) {
-    if (current.matches('p')) {
-      const text = current.textContent.replace(/\s+/g, ' ').trim();
-      if (text && text.toLowerCase() !== normalizedWord) return text;
-    }
-    current = current.nextElementSibling;
-  }
-  return '';
-}
-async function lookupGrammarDescription(word, signal) {
-  try {
-    const url = new URL('https://ru.wiktionary.org/w/api.php');
-    url.search = new URLSearchParams({ action: 'parse', page: word, prop: 'text', format: 'json', origin: '*' });
-    const response = await fetch(url, { signal });
-    if (!response.ok) return '';
-    const data = await response.json();
-    return extractGrammarDescription(data.parse?.text?.['*'] || '', word);
-  } catch { return ''; }
-}
 function parseWiktionaryEntry(wikitext, word) {
   const english = getEnglishWiktionarySection(wikitext);
-  const definitionMatch = english.match(/^#(?![:*])\s*(.+)$/m);
-  const translationBlock = english.match(/\{\{trans-top\|[^}]*\}\}([\s\S]*?)\{\{trans-bottom[^}]*\}\}/i);
-  const translationMatch = translationBlock?.[1].match(/\{\{t\+?\|ru\|([^|}]+)/i);
-  const definition = cleanWiktionaryText(definitionMatch?.[1] || '');
-  const translation = cleanWiktionaryText(translationMatch?.[1] || '');
-  if (!definition || !translation) throw new Error('В Wiktionary не нашлось подходящего значения.');
-  return { definition, translation, irregularForms: extractIrregularVerbForms(english, word) };
+  const section = getPreferredWiktionarySection(english, word);
+  const translation = getWiktionaryTranslation(section);
+  return { translation, irregularForms: extractIrregularVerbForms(section, word) };
 }
 function regularPastForm(word) {
   if (!/^[a-z]+$/.test(word)) return '';
@@ -172,11 +174,13 @@ function regularPastForm(word) {
   if (/[^aeiou]y$/.test(word)) return `${word.slice(0, -1)}ied`;
   return `${word}ed`;
 }
-function normalizeVerbForm(value, word, previous = '') {
-  let form = value.replace(/<[^>]*>|\[[^\]]*\]/g, '').split(',')[0].split(':')[0].trim();
+function normalizeVerbForm(value, word, previous = '', regular = '') {
+  const alternatives = value.replace(/<[^>]*>|\[[^\]]*\]/g, '').split(',').map(item => item.split(':')[0].trim()).filter(Boolean);
+  let form = alternatives.find(item => item !== '+') || alternatives[0] || '';
   if (!form || form === '-') return '';
-  if (form.startsWith('+')) return previous || word;
+  if (form === '+') return regular || previous || word;
   if (form.startsWith('~')) form = `${word}${form.slice(1)}`;
+  else if (/^[a-z]{1,2}$/i.test(form)) form = `${word}${form}`;
   return cleanWiktionaryText(form).trim().toLowerCase();
 }
 function extractIrregularVerbForms(english, sourceWord) {
@@ -189,46 +193,75 @@ function extractIrregularVerbForms(english, sourceWord) {
   const parts = (compact ? compact[1].split(',') : template.split('|')).map(part => part.trim());
   const pastIndex = compact ? 2 : parts.length >= 4 ? 2 : 2;
   const participleIndex = compact ? 3 : parts.length >= 4 ? 3 : 2;
-  const past = normalizeVerbForm(parts[pastIndex] || '', word);
-  const participle = normalizeVerbForm(parts[participleIndex] || '', word, past);
   const regular = regularPastForm(word);
+  const past = normalizeVerbForm(parts[pastIndex] || '', word, '', regular);
+  const participle = normalizeVerbForm(parts[participleIndex] || '', word, past, regular);
   if (!past || !participle || (past === regular && participle === regular)) return [];
   return [...new Set([past, participle])];
 }
-function appendIrregularForms(description, forms) {
-  if (!forms.length) return description;
-  return [description, `Неправильные формы: ${forms.join(', ')}.`].filter(Boolean).join(' ');
+function getWiktionaryLemma(english, sourceWord) {
+  const template = english.match(/\{\{(?:inflection of|infl of|past participle of|simple past of|past tense of|present participle of|present tense of|third-person singular of|third-person singular simple present indicative form of|verb form of|plural of|comparative of|superlative of)\|en\|([^|}]+)/i)?.[1] || '';
+  const lemma = cleanWiktionaryText(template.replace(/<[^>]*>/g, '')).split(',')[0].trim().toLowerCase();
+  return lemma && lemma !== sourceWord.toLowerCase() ? lemma : '';
 }
-async function lookupFromWiktionary(word, signal) {
+async function lookupFromWiktionary(word, signal, lookedUp = new Set()) {
+  if (lookedUp.has(word)) throw new Error('Перевод не найден. Попробуйте другое слово или добавьте перевод вручную.');
+  const visited = new Set(lookedUp).add(word);
   const url = new URL('https://en.wiktionary.org/w/api.php');
   url.search = new URLSearchParams({ action: 'parse', page: word, prop: 'wikitext', format: 'json', origin: '*' });
-  const response = await fetch(url, { signal });
-  if (!response.ok) throw new Error('Wiktionary недоступен.');
-  const data = await response.json();
-  const { translation, irregularForms } = parseWiktionaryEntry(data.parse?.wikitext?.['*'] || '', word);
-  return { translation, phonetic: '', irregularForms };
-}
-async function lookupFromLegacySources(word, signal) {
-  const [translationResponse, dictionaryResponse] = await Promise.all([
-    translateWithMyMemory(word, signal), fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`, { signal })
-  ]);
-  let dictionary = null;
-  if (dictionaryResponse.ok) dictionary = await dictionaryResponse.json();
-  return { translation: translationResponse, phonetic: dictionary?.[0]?.phonetic || dictionary?.[0]?.phonetics?.find(item => item.text)?.text || '' };
-}
-async function lookup(word, signal) {
-  const grammarDescription = lookupGrammarDescription(word, signal);
+  let response;
   try {
-    const result = await lookupFromWiktionary(word, signal);
-    return { ...result, definition: appendIrregularForms(await grammarDescription, result.irregularForms || []) };
-  } catch {
-    const result = await lookupFromLegacySources(word, signal);
-    return { ...result, definition: await grammarDescription };
+    response = await fetch(url, { signal });
+  } catch (error) {
+    if (error.name === 'AbortError') throw error;
+    throw new Error('Не удалось связаться со словарём. Попробуйте ещё раз.');
   }
+  if (!response.ok) throw new Error('Словарь временно недоступен. Попробуйте ещё раз.');
+  const data = await response.json();
+  const wikitext = data.parse?.wikitext?.['*'] || '';
+  const allEnglish = getEnglishWiktionarySection(wikitext);
+  const english = getPreferredWiktionarySection(allEnglish, word);
+  const entry = parseWiktionaryEntry(wikitext, word);
+  let translation = entry.translation;
+  if (!translation) {
+    const translationsUrl = new URL('https://en.wiktionary.org/w/api.php');
+    translationsUrl.search = new URLSearchParams({ action: 'parse', page: `${word}/translations`, prop: 'wikitext', format: 'json', origin: '*' });
+    const translationsResponse = await fetch(translationsUrl, { signal });
+    if (translationsResponse.ok) {
+      const translationsData = await translationsResponse.json();
+      const translationSource = translationsData.parse?.wikitext?.['*'] || '';
+      const translationsEnglish = getWiktionaryVerbSection(translationSource) || translationSource;
+      translation = getWiktionaryTranslation(translationsEnglish);
+    }
+  }
+  if (!translation) translation = getWiktionaryTranslation(allEnglish);
+  if (!translation) {
+    const lemma = getWiktionaryLemma(allEnglish, word);
+    if (lemma) return lookupFromWiktionary(lemma, signal, visited);
+  }
+  if (!translation) throw new Error('Перевод не найден. Попробуйте другое слово или добавьте перевод вручную.');
+  const forms = entry.irregularForms.length ? [`Формы: ${entry.irregularForms.join(', ')}.`] : [];
+  return {
+    translation,
+    phonetic: '',
+    examples: [...forms, ...extractWiktionaryExamples(english)].join('\n'),
+    synonyms: extractWiktionarySynonyms(english).join(', ')
+  };
+}
+function extractWiktionaryExamples(english) {
+  return uniqueText([...english.matchAll(/\{\{ux\|en\|([^|}]+)/gi)].map(match => cleanWiktionaryText(match[1])), 2);
+}
+function extractWiktionarySynonyms(english) {
+  const values = [...english.matchAll(/\{\{syn(?:onyms)?\|en\|([^}]+)/gi)]
+    .flatMap(match => match[1].split('|'))
+    .filter(value => value && !value.includes('='))
+    .map(value => cleanWiktionaryText(value))
+    .filter(value => !/^Thesaurus:/i.test(value));
+  return uniqueText(values, 8);
 }
 $('.tabs').addEventListener('click', event => { const tab = event.target.closest('.tab'); if (tab) switchView(tab.dataset.view); });
 $('#load-more').onclick = () => loadMoreCards().catch(error => alert(error.message));
-function getCardFromForm(prefix, form) { return { word: $(`#${prefix}-word-input`).value.trim(), translation: $(`#${prefix}-translation-input`).value.trim(), definition: $(`#${prefix}-definition-input`).value.trim(), phonetic: form.dataset.phonetic || '' }; }
+function getCardFromForm(prefix, form) { return { word: $(`#${prefix}-word-input`).value.trim(), translation: $(`#${prefix}-translation-input`).value.trim(), examples: $(`#${prefix}-examples-input`).value.trim(), synonyms: $(`#${prefix}-synonyms-input`).value.trim(), phonetic: form.dataset.phonetic || '' }; }
 function showAddSuccess() {
   const message = $('#add-success');
   clearTimeout(addSuccessTimer);
@@ -246,6 +279,7 @@ function showAddSuccess() {
 function scheduleLookup(prefix, form) {
   clearTimeout(lookupTimers[prefix]);
   lookupControllers[prefix]?.abort();
+  hideLookupMessage(prefix);
   const word = $(`#${prefix}-word-input`).value.trim();
   if (word.length < 2) return;
   lookupTimers[prefix] = setTimeout(() => fillCardFields(prefix, form), 500);
@@ -262,10 +296,12 @@ async function fillCardFields(prefix, form) {
     const data = await lookup(word, controller.signal);
     if (controller.signal.aborted || $(`#${prefix}-word-input`).value.trim() !== word) return;
     $(`#${prefix}-translation-input`).value = data.translation;
-    $(`#${prefix}-definition-input`).value = data.definition;
+    $(`#${prefix}-examples-input`).value = data.examples;
+    $(`#${prefix}-synonyms-input`).value = data.synonyms;
     form.dataset.phonetic = data.phonetic;
+    hideLookupMessage(prefix);
   } catch (error) {
-    if (error.name !== 'AbortError') alert(`${error.message} Заполните перевод вручную.`);
+    if (error.name !== 'AbortError') showLookupMessage(prefix, getLookupErrorMessage(error));
   } finally {
     if (lookupControllers[prefix] === controller) {
       saveButton.disabled = false;
@@ -294,7 +330,8 @@ function openEditDialog(card) {
   form.reset(); form.dataset.editingId = card.id; form.dataset.phonetic = card.phonetic || '';
   $('#edit-word-input').value = card.word;
   $('#edit-translation-input').value = card.translation;
-  $('#edit-definition-input').value = card.definition || '';
+  $('#edit-examples-input').value = card.examples || '';
+  $('#edit-synonyms-input').value = card.synonyms || '';
   $('#edit-dialog').showModal();
   $('#edit-word-input').focus();
 }
@@ -362,3 +399,26 @@ document.addEventListener('keydown', event => {
   activateFlashcard();
 });
 loadCards();
+
+function showLookupMessage(prefix, message) {
+  const element = $(`#${prefix}-lookup-message`);
+  element.textContent = message;
+  element.hidden = false;
+}
+function hideLookupMessage(prefix) {
+  const element = $(`#${prefix}-lookup-message`);
+  element.hidden = true;
+  element.textContent = '';
+}
+function getLookupErrorMessage(error) {
+  const message = String(error?.message || '');
+  return /[А-Яа-яЁё]/.test(message)
+    ? message
+    : 'Не удалось получить данные из словаря. Попробуйте ещё раз.';
+}
+function uniqueText(values, limit = 8) {
+  return [...new Set(values.filter(Boolean))].slice(0, limit);
+}
+async function lookup(word, signal) {
+  return lookupFromWiktionary(word, signal);
+}

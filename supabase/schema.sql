@@ -2,10 +2,14 @@ create table public.cards (
   id uuid primary key default gen_random_uuid(),
   word text not null,
   translation text not null,
-  definition text,
+  examples text,
+  synonyms text,
   phonetic text,
   created_at timestamptz not null default now()
 );
+
+alter table public.cards add column if not exists examples text;
+alter table public.cards add column if not exists synonyms text;
 
 alter table public.cards enable row level security;
 

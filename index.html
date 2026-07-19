@@ -31,7 +31,7 @@
       .remove::before, .remove::after { content: ""; position: absolute; top: 50%; left: 50%; width: 18px; height: 2px; border-radius: 2px; background: currentColor; }
       .remove::before { transform: translate(-50%, -50%) rotate(45deg); }
       .remove::after { transform: translate(-50%, -50%) rotate(-45deg); }
-      .word-card .definition { max-width: calc(100% - 50px); }
+      .word-card .examples { max-width: calc(100% - 50px); }
     </style>
   </head>
   <body>
@@ -61,10 +61,12 @@
           <h1>Перевод</h1>
           <form id="add-word-form" novalidate>
             <label>Слово или фраза на английском<input id="add-word-input" required autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="например, put off" /><span class="field-warning" role="alert" hidden></span></label>
-            <div class="loading" id="add-lookup-loading">Ищем перевод и значение…</div>
+            <p class="lookup-message" id="add-lookup-message" role="status" hidden></p>
+            <div class="loading" id="add-lookup-loading">Ищем перевод…</div>
             <div class="auto-fields show" id="add-auto-fields">
               <label>Перевод<input id="add-translation-input" required /><span class="field-warning" role="alert" hidden></span></label>
-              <label>Описание<textarea id="add-definition-input" rows="4"></textarea></label>
+              <label>Примеры<textarea id="add-examples-input" rows="4"></textarea></label>
+              <label>Синонимы<input id="add-synonyms-input" /></label>
             </div>
             <button class="add-button add-outline wide" id="add-save-word" type="submit">Добавить</button>
           </form>
@@ -108,7 +110,7 @@
             <div class="card-face card-back" id="card-back" aria-hidden="true">
               <span class="card-label">ПЕРЕВОД</span>
               <h2 id="study-translation"></h2>
-              <p id="study-definition"></p>
+              <p id="study-examples"></p>
               <small>Нажмите для следующей карточки</small>
             </div>
           </div>
@@ -127,10 +129,12 @@
         <button class="close" type="button" aria-label="Закрыть">×</button>
         <p class="eyebrow">Редактирование карточки</p>
         <label>Слово или фраза на английском<input id="edit-word-input" required autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" /><span class="field-warning" role="alert" hidden></span></label>
-        <div class="loading" id="edit-lookup-loading">Ищем перевод и значение…</div>
+        <p class="lookup-message" id="edit-lookup-message" role="status" hidden></p>
+        <div class="loading" id="edit-lookup-loading">Ищем перевод…</div>
         <div class="auto-fields show" id="edit-auto-fields">
           <label>Перевод<input id="edit-translation-input" required /><span class="field-warning" role="alert" hidden></span></label>
-          <label>Описание<textarea id="edit-definition-input" rows="3"></textarea></label>
+          <label>Примеры<textarea id="edit-examples-input" rows="3"></textarea></label>
+          <label>Синонимы<input id="edit-synonyms-input" /></label>
         </div>
         <button class="add-button add-outline wide" id="edit-save-word" type="submit">Сохранить изменения</button>
       </form>
