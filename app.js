@@ -204,6 +204,23 @@ function getWiktionaryLemma(english, sourceWord) {
   const lemma = cleanWiktionaryText(template.replace(/<[^>]*>/g, '')).split(',')[0].trim().toLowerCase();
   return lemma && lemma !== sourceWord.toLowerCase() ? lemma : '';
 }
+function getRussianWiktionaryTranslation(wikitext) {
+  const definition = wikitext.match(/==== Значение ====\s*\n#\s*(.+?)(?=\n#|\n====|$)/s)?.[1] || '';
+  return cleanWiktionaryText(definition);
+}
+async function lookupRussianWiktionaryTranslation(word, signal) {
+  try {
+    const url = new URL('https://ru.wiktionary.org/w/api.php');
+    url.search = new URLSearchParams({ action: 'parse', page: word, prop: 'wikitext', format: 'json', origin: '*' });
+    const response = await fetch(url, { signal });
+    if (!response.ok) return '';
+    const data = await response.json();
+    return getRussianWiktionaryTranslation(data.parse?.wikitext?.['*'] || '');
+  } catch (error) {
+    if (error.name === 'AbortError') throw error;
+    return '';
+  }
+}
 async function lookupFromWiktionary(word, signal, lookedUp = new Set()) {
   if (lookedUp.has(word)) throw new Error('Перевод не найден. Попробуйте другое слово или добавьте перевод вручную.');
   const visited = new Set(lookedUp).add(word);
@@ -239,6 +256,7 @@ async function lookupFromWiktionary(word, signal, lookedUp = new Set()) {
     const lemma = getWiktionaryLemma(allEnglish, word);
     if (lemma) return lookupFromWiktionary(lemma, signal, visited);
   }
+  if (!translation) translation = await lookupRussianWiktionaryTranslation(word, signal);
   if (!translation) throw new Error('Перевод не найден. Попробуйте другое слово или добавьте перевод вручную.');
   const forms = entry.irregularForms.length ? [`Формы: ${entry.irregularForms.join(', ')}.`] : [];
   return {
