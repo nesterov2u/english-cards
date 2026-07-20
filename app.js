@@ -8,7 +8,7 @@ import {
   getWiktionaryTranslation,
   isCompatibleWiktionarySearchTitle,
   parseWiktionaryEntry,
-} from './wiktionary.js?v=2';
+} from './wiktionary.js?v=8';
 
 const $ = (selector) => document.querySelector(selector);
 const DEFAULT_CONFIG = {
@@ -25,6 +25,10 @@ let addSuccessTimer = null;
 let addSuccessHideTimer = null;
 const lookupTimers = {};
 const lookupControllers = {};
+const otherMeanings = new Map();
+const pendingOtherMeanings = new Set();
+const otherMeaningsQueue = [];
+let activeOtherMeaningsRequests = 0;
 
 function apiHeaders() { return { apikey: state.config.key, Authorization: `Bearer ${state.config.key}`, 'Content-Type': 'application/json' }; }
 function setSyncStatus(isConnected, message) { $('#sync-status').classList.toggle('is-connected', isConnected); $('#sync-status').classList.toggle('is-disconnected', !isConnected); $('#sync-status').setAttribute('aria-label', message); $('#sync-status').title = message; }
@@ -100,13 +104,62 @@ function fitStudyHeading(element) {
     element.style.fontSize = `${Math.max(18, Math.floor(fontSize * availableWidth / naturalWidth))}px`;
   }
 }
+function getStudyDetails(card) {
+  const meanings = otherMeanings.get(card.word.toLowerCase()) || '';
+  return { meanings, synonyms: card.synonyms ? `Синонимы: ${card.synonyms}` : '' };
+}
+function renderStudyDetails(card) {
+  const details = getStudyDetails(card);
+  $('#study-other-meanings').textContent = details.meanings;
+  $('#study-other-meanings').hidden = !details.meanings;
+  $('#study-synonyms').textContent = details.synonyms;
+  $('#study-synonyms').hidden = !details.synonyms;
+  $('#card-back').classList.toggle('has-long-definition', `${card.translation} ${details.meanings} ${details.synonyms}`.length > 110);
+}
+function updateLibraryOtherMeanings(word, meanings) {
+  document.querySelectorAll('[data-other-meanings-word]').forEach(element => {
+    if (element.dataset.otherMeaningsWord !== word) return;
+    element.textContent = meanings ? `Другие значения: ${meanings}` : '';
+    element.hidden = !meanings;
+  });
+}
+function processOtherMeaningsQueue() {
+  while (activeOtherMeaningsRequests < 3 && otherMeaningsQueue.length) {
+    const card = otherMeaningsQueue.shift();
+    activeOtherMeaningsRequests += 1;
+    lookup(card.word)
+      .then(data => otherMeanings.set(card.word.toLowerCase(), data.otherMeanings || ''))
+      .catch(() => otherMeanings.set(card.word.toLowerCase(), ''))
+      .finally(() => {
+        const word = card.word.toLowerCase();
+        const meanings = otherMeanings.get(word) || '';
+        updateLibraryOtherMeanings(word, meanings);
+        const currentCard = state.studyCards?.[state.currentIndex];
+        if (currentCard?.id === card.id) renderStudyDetails(card);
+        pendingOtherMeanings.delete(word);
+        activeOtherMeaningsRequests -= 1;
+        processOtherMeaningsQueue();
+      });
+  }
+}
+function loadOtherMeanings(card) {
+  const word = card.word.toLowerCase();
+  if (otherMeanings.has(word) || pendingOtherMeanings.has(word)) return;
+  pendingOtherMeanings.add(word);
+  otherMeaningsQueue.push(card);
+  processOtherMeaningsQueue();
+}
 function render() {
   $('#word-count').textContent = state.totalCards;
   $('#library-view').classList.toggle('has-cards', state.totalCards > 0);
   $('#library-error').hidden = !state.loadError;
   $('#library-error-message').textContent = state.loadError;
   $('#empty-state').style.display = state.totalCards || state.loadError ? 'none' : 'block';
-  $('#cards-list').innerHTML = state.cards.map(card => `<article class="word-card"><button class="edit" data-id="${card.id}" aria-label="Редактировать"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.4-1 10.1-10.1a2.1 2.1 0 0 0-3-3L5.4 15.9 4 20Z" /><path d="m13.9 7.5 3 3" /></svg></button><button class="remove" data-id="${card.id}" aria-label="Удалить">×</button><h2>${escapeHtml(card.word)}</h2><p class="translation">${escapeHtml(card.translation)}</p><p class="examples">${escapeHtml(card.examples || '')}</p><p class="synonyms">${card.synonyms ? `Синонимы: ${escapeHtml(card.synonyms)}` : ''}</p></article>`).join('');
+  $('#cards-list').innerHTML = state.cards.map(card => {
+    const meanings = otherMeanings.get(card.word.toLowerCase()) || '';
+    return `<article class="word-card"><button class="edit" data-id="${card.id}" aria-label="Редактировать"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.4-1 10.1-10.1a2.1 2.1 0 0 0-3-3L5.4 15.9 4 20Z" /><path d="m13.9 7.5 3 3" /></svg></button><button class="remove" data-id="${card.id}" aria-label="Удалить">×</button><h2>${escapeHtml(card.word)}</h2><p class="translation">${escapeHtml(card.translation)}</p><p class="examples">${escapeHtml(card.examples || '')}</p><p class="other-meanings" data-other-meanings-word="${escapeHtml(card.word.toLowerCase())}"${meanings ? '' : ' hidden'}>${meanings ? `Другие значения: ${escapeHtml(meanings)}` : ''}</p><p class="synonyms">${card.synonyms ? `Синонимы: ${escapeHtml(card.synonyms)}` : ''}</p></article>`;
+  }).join('');
+  if ($('#library-view').classList.contains('is-active')) state.cards.forEach(loadOtherMeanings);
   $('#load-more').hidden = state.cards.length >= state.totalCards || state.totalCards === 0;
   $('#load-more').disabled = state.isLoadingMore;
   $('#load-more').textContent = state.isLoadingMore ? 'Загружаем…' : 'Показать ещё';
@@ -120,7 +173,7 @@ function render() {
   $('#study-progress-count').textContent = `${shownStudyCards} из ${totalStudyCards}`;
   $('#study-progress-value').style.width = totalStudyCards ? `${shownStudyCards / totalStudyCards * 100}%` : '0%';
   $('#shuffle-study').hidden = !totalStudyCards;
-  if (card) { const examples = card.examples || ''; const synonyms = card.synonyms ? `Синонимы: ${card.synonyms}` : ''; $('#study-word').textContent = card.word; $('#study-phonetic').textContent = card.phonetic || ''; $('#study-translation').textContent = card.translation; $('#study-examples').textContent = [examples, synonyms].filter(Boolean).join('\n'); $('#card-back').classList.toggle('has-long-definition', `${examples} ${synonyms}`.length > 110); fitStudyHeading($('#study-word')); fitStudyHeading($('#study-translation')); setCardFlipped(false); }
+  if (card) { $('#study-word').textContent = card.word; $('#study-phonetic').textContent = card.phonetic || ''; $('#study-translation').textContent = card.translation; renderStudyDetails(card); loadOtherMeanings(card); fitStudyHeading($('#study-word')); fitStudyHeading($('#study-translation')); setCardFlipped(false); }
 }
 function setCardFlipped(isFlipped) {
   $('#flashcard').classList.toggle('is-flipped', isFlipped);
@@ -129,7 +182,7 @@ function setCardFlipped(isFlipped) {
   $('#flashcard').setAttribute('aria-label', isFlipped ? 'Показать следующую карточку' : 'Показать перевод');
 }
 function setStudyPrompt() { $('#study-prompt').textContent = STUDY_PROMPTS[Math.floor(Math.random() * STUDY_PROMPTS.length)]; }
-function switchView(name) { document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('is-active', tab.dataset.view === name)); document.querySelectorAll('.view').forEach(view => view.classList.toggle('is-active', view.id === `${name}-view`)); if (name === 'study') { setStudyPrompt(); if (state.totalCards) loadStudyCards(); } }
+function switchView(name) { document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('is-active', tab.dataset.view === name)); document.querySelectorAll('.view').forEach(view => view.classList.toggle('is-active', view.id === `${name}-view`)); if (name === 'study') { setStudyPrompt(); if (state.totalCards) loadStudyCards(); } if (name === 'library') render(); }
 async function lookupRussianWiktionaryTranslation(word, signal) {
   try {
     const url = new URL('https://ru.wiktionary.org/w/api.php');
@@ -206,12 +259,30 @@ async function lookupFromWiktionary(word, signal, lookedUp = new Set(), canSearc
     translation,
     phonetic: '',
     examples: [...forms, ...extractWiktionaryExamples(allEnglish)].join('\n'),
+    otherMeanings: entry.otherTranslations.join(', '),
     synonyms: extractWiktionarySynonyms(allEnglish).join(', ')
   };
 }
 $('.tabs').addEventListener('click', event => { const tab = event.target.closest('.tab'); if (tab) switchView(tab.dataset.view); });
 $('#load-more').onclick = () => loadMoreCards().catch(error => alert(error.message));
 $('#retry-load').onclick = loadCards;
+function setGeneratedField(prefix, name, value) {
+  const content = String(value || '').trim();
+  $(`#${prefix}-${name}-input`).value = content;
+  $(`#${prefix}-${name}-text`).textContent = content;
+  $(`#${prefix}-${name}-field`).hidden = !content;
+}
+function setGeneratedFields(prefix, examples = '', otherMeanings = '', synonyms = '') {
+  setGeneratedField(prefix, 'examples', examples);
+  setGeneratedField(prefix, 'other-meanings', otherMeanings);
+  setGeneratedField(prefix, 'synonyms', synonyms);
+}
+function clearGeneratedFields(prefix, form) {
+  clearTimeout(lookupTimers[prefix]);
+  lookupControllers[prefix]?.abort();
+  form.dataset.phonetic = '';
+  setGeneratedFields(prefix);
+}
 function getCardFromForm(prefix, form) { return { word: $(`#${prefix}-word-input`).value.trim(), translation: $(`#${prefix}-translation-input`).value.trim(), examples: $(`#${prefix}-examples-input`).value.trim(), synonyms: $(`#${prefix}-synonyms-input`).value.trim(), phonetic: form.dataset.phonetic || '' }; }
 function showAddSuccess() {
   const message = $('#add-success');
@@ -247,8 +318,7 @@ async function fillCardFields(prefix, form) {
     const data = await lookup(word, controller.signal);
     if (controller.signal.aborted || $(`#${prefix}-word-input`).value.trim() !== word) return;
     $(`#${prefix}-translation-input`).value = data.translation;
-    $(`#${prefix}-examples-input`).value = data.examples;
-    $(`#${prefix}-synonyms-input`).value = data.synonyms;
+    setGeneratedFields(prefix, data.examples, data.otherMeanings, data.synonyms);
     form.dataset.phonetic = data.phonetic;
     hideLookupMessage(prefix);
   } catch (error) {
@@ -281,8 +351,7 @@ function openEditDialog(card) {
   form.reset(); form.dataset.editingId = card.id; form.dataset.phonetic = card.phonetic || '';
   $('#edit-word-input').value = card.word;
   $('#edit-translation-input').value = card.translation;
-  $('#edit-examples-input').value = card.examples || '';
-  $('#edit-synonyms-input').value = card.synonyms || '';
+  setGeneratedFields('edit', card.examples, '', card.synonyms);
   $('#edit-dialog').showModal();
   $('#edit-word-input').focus();
 }
@@ -309,6 +378,8 @@ function normalizeWordInput(input) {
 }
 $('#add-word-input').addEventListener('input', event => { normalizeWordInput(event.target); scheduleLookup('add', $('#add-word-form')); });
 $('#edit-word-input').addEventListener('input', event => { normalizeWordInput(event.target); scheduleLookup('edit', $('#edit-word-form')); });
+$('#add-translation-input').addEventListener('input', () => clearGeneratedFields('add', $('#add-word-form')));
+$('#edit-translation-input').addEventListener('input', () => clearGeneratedFields('edit', $('#edit-word-form')));
 ['#add-word-form', '#edit-word-form'].forEach(selector => {
   $(selector).addEventListener('input', event => {
     if (event.target.matches('[required]')) clearFieldWarning(event.target);
@@ -319,7 +390,7 @@ $('#add-word-form').addEventListener('submit', async event => {
   const form = event.currentTarget;
   if (!validateRequiredFields(form)) return;
   const card = getCardFromForm('add', form);
-  try { await persistCard(card); form.reset(); form.dataset.phonetic = ''; showAddSuccess(); } catch (error) { alert(error.message); }
+  try { await persistCard(card); form.reset(); form.dataset.phonetic = ''; setGeneratedFields('add'); showAddSuccess(); } catch (error) { alert(error.message); }
 });
 $('#edit-word-form').addEventListener('submit', async event => {
   event.preventDefault();

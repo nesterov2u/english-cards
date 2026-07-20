@@ -54,9 +54,14 @@ input.is-invalid { border-color:#ff3b30 !important; box-shadow:0 0 0 3px #ff3b30
 .library-retry:hover { background:var(--soft-blue); }
 @media (max-width:600px) { .library-error { align-items:flex-start; flex-direction:column; gap:12px; } }
 @media (min-width:601px) { .splash-mark { width:56px; height:56px; } }
-.word-card .examples,.word-card .synonyms { max-width:calc(100% - 50px); margin:0; color:var(--muted); font-size:13px; line-height:1.45; white-space:pre-line; }
+.word-card .examples,.word-card .other-meanings,.word-card .synonyms { max-width:calc(100% - 50px); margin:0; color:var(--muted); font-size:13px; line-height:1.45; white-space:pre-line; }
+.word-card .other-meanings { margin-top:8px; font-size:12px; }
 .word-card .synonyms { margin-top:8px; color:var(--blue); font-size:12px; }
-#add-examples-input,#edit-examples-input,#add-synonyms-input,#edit-synonyms-input { min-height:104px; padding:13px 18px; font-size:13px; font-weight:400; line-height:1.45; }
-#add-examples-input,#edit-examples-input { color:var(--muted); }
-#add-synonyms-input,#edit-synonyms-input { color:var(--blue); }
-#study-examples { white-space:pre-line; }
+.generated-field { margin-top:26px; }
+.generated-field[hidden] { display:none; }
+.generated-label { margin:0; color:var(--muted); font-size:13px; font-weight:500; }
+.generated-content { margin:10px 0 0; color:var(--muted); font-size:13px; font-weight:400; line-height:1.45; white-space:pre-line; }
+.generated-synonyms .generated-content { color:var(--blue); }
+#study-details { white-space:pre-line; }
+#study-details span { display:block; }
+#study-synonyms:not([hidden]) { margin-top:10px; }

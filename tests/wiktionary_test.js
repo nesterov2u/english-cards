@@ -3,6 +3,7 @@ import {
   extractWiktionarySynonyms,
   getEnglishWiktionarySection,
   getWiktionaryLemma,
+  getWiktionaryTranslations,
   parseWiktionaryEntry,
 } from '../wiktionary.js';
 
@@ -61,7 +62,7 @@ const entries = {
 ===Verb===
 ====Translations====
 {{trans-top|delay}}
-* Russian: {{t|ru|откладывать}}
+* Russian: {{t|ru|откладывать}}, {{t|ru|[[переносить|переноси́ть]]}}
 {{trans-bottom}}
 ====Synonyms====
 {{syn|en|postpone|defer|track#Noun|[[mix#Noun|mix]]}}
@@ -109,6 +110,8 @@ Deno.test('finds the lemma for a verb form without a standalone translation', ()
 Deno.test('parses a phrasal verb and extracts its supporting content', () => {
   const english = getEnglishWiktionarySection(entries.putOff);
   assertEquals(parseWiktionaryEntry(entries.putOff, 'put off').translation, 'откладывать');
+  assertEquals(getWiktionaryTranslations(getEnglishWiktionarySection(entries.putOff)), ['откладывать', 'переноси́ть']);
+  assertEquals(parseWiktionaryEntry(entries.putOff, 'put off').otherTranslations, ['переноси́ть']);
   assertEquals(extractWiktionaryExamples(english), ['She put off the meeting.']);
   assertEquals(extractWiktionarySynonyms(english), ['postpone', 'defer', 'track', 'mix']);
 });

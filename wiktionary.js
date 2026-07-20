@@ -54,14 +54,22 @@ export function getEnglishWiktionarySection(wikitext) {
   return section?.[1] || '';
 }
 
-export function getWiktionaryTranslation(section) {
+export function getWiktionaryTranslations(section) {
   const blocks = [...section.matchAll(/\{\{trans-top(?:-see)?\|[^}]*\}\}([\s\S]*?)\{\{trans-bottom[^}]*\}\}/gi)];
-  const translations = blocks.map(block => ({
-    label: cleanWiktionaryText(block[0].match(/\{\{trans-top(?:-see)?\|([^}|]+)/i)?.[1] || ''),
-    value: cleanWiktionaryText(block[1].match(/\{\{(?:t|tt)\+?\|ru\|([^|}]+)/i)?.[1] || '')
-  })).filter(item => item.value);
+  const translations = blocks.flatMap(block => {
+    const label = cleanWiktionaryText(block[0].match(/\{\{trans-top(?:-see)?\|([^}|]+)/i)?.[1] || '');
+    return [...block[1].matchAll(/\{\{(?:t|tt)\+?\|ru\|([\s\S]*?)\}\}/gi)]
+      .map(match => ({ label, value: cleanWiktionaryText(splitWiktionaryParameters(match[1])[0] || '') }))
+      .filter(item => item.value);
+  });
   const semanticTranslation = translations.find(item => !/^(?:in |for |as |used |auxiliary|pro-verb|grammatical|syntactic|emphasis|question|negation)/i.test(item.label));
-  return semanticTranslation?.value || translations[0]?.value || '';
+  const primary = semanticTranslation || translations[0];
+  if (!primary) return [];
+  return [...new Set([primary.value, ...translations.map(item => item.value)])];
+}
+
+export function getWiktionaryTranslation(section) {
+  return getWiktionaryTranslations(section)[0] || '';
 }
 
 export function getWiktionaryLemma(english, sourceWord) {
@@ -123,7 +131,8 @@ function extractIrregularVerbForms(english, sourceWord) {
 export function parseWiktionaryEntry(wikitext, word, preferVerb = false) {
   const english = getEnglishWiktionarySection(wikitext);
   const section = getPreferredWiktionarySection(english, word, preferVerb);
-  return { translation: getWiktionaryTranslation(section), irregularForms: extractIrregularVerbForms(section, word) };
+  const translations = getWiktionaryTranslations(section);
+  return { translation: translations[0] || '', otherTranslations: translations.slice(1), irregularForms: extractIrregularVerbForms(section, word) };
 }
 
 export function getRussianWiktionaryTranslation(wikitext) {

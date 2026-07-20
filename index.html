@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=2" />
+    <link rel="stylesheet" href="styles.css?v=7" />
     <style>
       .brand { letter-spacing: 0; }
       .brand-mark { width: 34px; height: 34px; }
@@ -65,8 +65,21 @@
             <div class="loading" id="add-lookup-loading">Ищем перевод…</div>
             <div class="auto-fields show" id="add-auto-fields">
               <label>Перевод<input id="add-translation-input" required /><span class="field-warning" role="alert" hidden></span></label>
-              <label>Примеры<textarea id="add-examples-input" rows="4"></textarea></label>
-              <label>Синонимы<textarea id="add-synonyms-input" rows="4"></textarea></label>
+              <section class="generated-field" id="add-examples-field" hidden>
+                <p class="generated-label">Примеры</p>
+                <p class="generated-content" id="add-examples-text"></p>
+                <input id="add-examples-input" type="hidden" />
+              </section>
+              <section class="generated-field" id="add-other-meanings-field" hidden>
+                <p class="generated-label">Другие значения</p>
+                <p class="generated-content" id="add-other-meanings-text"></p>
+                <input id="add-other-meanings-input" type="hidden" />
+              </section>
+              <section class="generated-field generated-synonyms" id="add-synonyms-field" hidden>
+                <p class="generated-label">Синонимы</p>
+                <p class="generated-content" id="add-synonyms-text"></p>
+                <input id="add-synonyms-input" type="hidden" />
+              </section>
             </div>
             <button class="add-button add-outline wide" id="add-save-word" type="submit">Добавить</button>
           </form>
@@ -114,7 +127,7 @@
             <div class="card-face card-back" id="card-back" aria-hidden="true">
               <span class="card-label">ПЕРЕВОД</span>
               <h2 id="study-translation"></h2>
-              <p id="study-examples"></p>
+              <p id="study-details"><span id="study-other-meanings"></span><span id="study-synonyms"></span></p>
               <small>Нажмите для следующей карточки</small>
             </div>
           </div>
@@ -137,12 +150,25 @@
         <div class="loading" id="edit-lookup-loading">Ищем перевод…</div>
         <div class="auto-fields show" id="edit-auto-fields">
           <label>Перевод<input id="edit-translation-input" required /><span class="field-warning" role="alert" hidden></span></label>
-          <label>Примеры<textarea id="edit-examples-input" rows="3"></textarea></label>
-          <label>Синонимы<textarea id="edit-synonyms-input" rows="3"></textarea></label>
+          <section class="generated-field" id="edit-examples-field" hidden>
+            <p class="generated-label">Примеры</p>
+            <p class="generated-content" id="edit-examples-text"></p>
+            <input id="edit-examples-input" type="hidden" />
+          </section>
+          <section class="generated-field" id="edit-other-meanings-field" hidden>
+            <p class="generated-label">Другие значения</p>
+            <p class="generated-content" id="edit-other-meanings-text"></p>
+            <input id="edit-other-meanings-input" type="hidden" />
+          </section>
+          <section class="generated-field generated-synonyms" id="edit-synonyms-field" hidden>
+            <p class="generated-label">Синонимы</p>
+            <p class="generated-content" id="edit-synonyms-text"></p>
+            <input id="edit-synonyms-input" type="hidden" />
+          </section>
         </div>
         <button class="add-button add-outline wide" id="edit-save-word" type="submit">Сохранить изменения</button>
       </form>
     </dialog>
-    <script type="module" src="app.js?v=2"></script>
+    <script type="module" src="app.js?v=9"></script>
   </body>
 </html>
