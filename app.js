@@ -24,6 +24,7 @@ let ignoreFlashcardClickUntil = 0;
 let studyLoadPromise = null;
 let addSuccessTimer = null;
 let addSuccessHideTimer = null;
+let splashBackgroundTimer = null;
 const lookupTimers = {};
 const lookupControllers = {};
 const otherMeanings = new Map();
@@ -33,7 +34,7 @@ let activeOtherMeaningsRequests = 0;
 
 function apiHeaders() { return { apikey: state.config.key, Authorization: `Bearer ${state.config.key}`, 'Content-Type': 'application/json' }; }
 function setSyncStatus(isConnected, message) { $('#sync-status').classList.toggle('is-connected', isConnected); $('#sync-status').classList.toggle('is-disconnected', !isConnected); $('#sync-status').setAttribute('aria-label', message); $('#sync-status').title = message; }
-function setAppLoading(isLoading) { document.documentElement.classList.toggle('is-splash-visible', isLoading); $('#app-loader').classList.toggle('is-hidden', !isLoading); $('#app-loader').setAttribute('aria-hidden', String(!isLoading)); }
+function setAppLoading(isLoading) { const loader = $('#app-loader'); clearTimeout(splashBackgroundTimer); if (isLoading) { document.documentElement.classList.add('is-splash-visible'); loader.classList.remove('is-hidden'); loader.setAttribute('aria-hidden', 'false'); return; } loader.classList.add('is-hidden'); loader.setAttribute('aria-hidden', 'true'); splashBackgroundTimer = setTimeout(() => document.documentElement.classList.remove('is-splash-visible'), 350); }
 async function request(path, options = {}) {
   const { withCount = false, ...requestOptions } = options;
   if (!state.config.url || !state.config.key) throw new Error('Не удалось подключиться к базе. Попробуйте обновить страницу.');
