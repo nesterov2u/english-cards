@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=2" />
     <style>
       .brand { letter-spacing: 0; }
       .brand-mark { width: 34px; height: 34px; }
@@ -66,7 +66,7 @@
             <div class="auto-fields show" id="add-auto-fields">
               <label>Перевод<input id="add-translation-input" required /><span class="field-warning" role="alert" hidden></span></label>
               <label>Примеры<textarea id="add-examples-input" rows="4"></textarea></label>
-              <label>Синонимы<input id="add-synonyms-input" /></label>
+              <label>Синонимы<textarea id="add-synonyms-input" rows="4"></textarea></label>
             </div>
             <button class="add-button add-outline wide" id="add-save-word" type="submit">Добавить</button>
           </form>
@@ -138,11 +138,11 @@
         <div class="auto-fields show" id="edit-auto-fields">
           <label>Перевод<input id="edit-translation-input" required /><span class="field-warning" role="alert" hidden></span></label>
           <label>Примеры<textarea id="edit-examples-input" rows="3"></textarea></label>
-          <label>Синонимы<input id="edit-synonyms-input" /></label>
+          <label>Синонимы<textarea id="edit-synonyms-input" rows="3"></textarea></label>
         </div>
         <button class="add-button add-outline wide" id="edit-save-word" type="submit">Сохранить изменения</button>
       </form>
     </dialog>
-    <script type="module" src="app.js"></script>
+    <script type="module" src="app.js?v=2"></script>
   </body>
 </html>

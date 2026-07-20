@@ -8,7 +8,7 @@ import {
   getWiktionaryTranslation,
   isCompatibleWiktionarySearchTitle,
   parseWiktionaryEntry,
-} from './wiktionary.js';
+} from './wiktionary.js?v=2';
 
 const $ = (selector) => document.querySelector(selector);
 const DEFAULT_CONFIG = {

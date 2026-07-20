@@ -64,7 +64,7 @@ const entries = {
 * Russian: {{t|ru|откладывать}}
 {{trans-bottom}}
 ====Synonyms====
-{{syn|en|postpone|defer}}
+{{syn|en|postpone|defer|track#Noun|[[mix#Noun|mix]]}}
 #: {{ux|en|She put off the meeting.}}`,
   noTranslation: `==English==
 ===Noun===
@@ -110,7 +110,7 @@ Deno.test('parses a phrasal verb and extracts its supporting content', () => {
   const english = getEnglishWiktionarySection(entries.putOff);
   assertEquals(parseWiktionaryEntry(entries.putOff, 'put off').translation, 'откладывать');
   assertEquals(extractWiktionaryExamples(english), ['She put off the meeting.']);
-  assertEquals(extractWiktionarySynonyms(english), ['postpone', 'defer']);
+  assertEquals(extractWiktionarySynonyms(english), ['postpone', 'defer', 'track', 'mix']);
 });
 
 Deno.test('returns an empty translation when the entry has no Russian translation table', () => {

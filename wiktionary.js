@@ -142,14 +142,35 @@ function uniqueText(values, limit = 8) {
   return [...new Set(values.filter(Boolean))].slice(0, limit);
 }
 
+function splitWiktionaryParameters(value) {
+  const parameters = [];
+  let start = 0;
+  let linkDepth = 0;
+  let templateDepth = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const pair = value.slice(index, index + 2);
+    if (pair === '[[') { linkDepth += 1; index += 1; continue; }
+    if (pair === ']]' && linkDepth) { linkDepth -= 1; index += 1; continue; }
+    if (pair === '{{') { templateDepth += 1; index += 1; continue; }
+    if (pair === '}}' && templateDepth) { templateDepth -= 1; index += 1; continue; }
+    if (value[index] === '|' && !linkDepth && !templateDepth) {
+      parameters.push(value.slice(start, index));
+      start = index + 1;
+    }
+  }
+  parameters.push(value.slice(start));
+  return parameters;
+}
+
 export function extractWiktionaryExamples(english) {
   return uniqueText([...english.matchAll(/\{\{ux\|en\|([^|}]+)/gi)].map(match => cleanWiktionaryText(match[1])), 2);
 }
 
 export function extractWiktionarySynonyms(english) {
   const values = [...english.matchAll(/\{\{syn(?:onyms)?\|en\|([^}]+)/gi)]
-    .flatMap(match => match[1].split('|'))
+    .flatMap(match => splitWiktionaryParameters(match[1]))
     .filter(value => value && !value.includes('='))
+    .map(value => value.replace(/#[^|\]\s]+/g, ''))
     .map(value => cleanWiktionaryText(value))
     .filter(value => !/^Thesaurus:/i.test(value));
   return uniqueText(values, 8);
