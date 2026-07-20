@@ -14,8 +14,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=15" />
+    <link rel="stylesheet" href="styles.css?v=16" />
     <style>
+      html.is-splash-visible, html.is-splash-visible body { background: linear-gradient(135deg, #00BDBD, #06D3D3); }
+      html.is-splash-visible body > :not(#app-loader) { visibility: hidden; }
+      .app-loader { position: fixed; z-index: 100; inset: 0; display: flex; align-items: center; justify-content: center; gap: 10px; background: linear-gradient(135deg, #00BDBD, #06D3D3); color: #fff; }
       .brand { letter-spacing: 0; }
       .brand-mark { width: 34px; height: 34px; }
       h1 { letter-spacing: -0.5px; }
@@ -164,6 +167,6 @@
         </div>
       </form>
     </dialog>
-    <script type="module" src="app.js?v=16"></script>
+    <script type="module" src="app.js?v=17"></script>
   </body>
 </html>
