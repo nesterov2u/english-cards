@@ -63,7 +63,8 @@ input.is-invalid { border-color:#ff3b30 !important; box-shadow:0 0 0 3px #ff3b30
 .generated-content { margin:10px 0 0; color:var(--muted); font-size:13px; font-weight:400; line-height:1.45; white-space:pre-line; }
 .generated-other-meanings .generated-content { color:var(--blue); }
 .generated-synonyms .generated-content { color:var(--muted); }
-#study-details { white-space:pre-line; }
+#study-details { white-space:pre-line; font-size:13px; line-height:1.35; }
 input[type="hidden"] { display:none; }
 #study-details span { display:block; }
 #study-synonyms:not([hidden]) { margin-top:10px; }
+.card-back.has-long-definition #study-details { top:calc(50% + 45px); bottom:72px; overflow-y:auto; font-size:13px; line-height:1.35; }
