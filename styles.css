@@ -46,6 +46,7 @@ input.is-invalid { border-color:#ff3b30 !important; box-shadow:0 0 0 3px #ff3b30
 .app-loader { gap:10px; }
 .splash-mark,.splash-title { animation:splash-fade .45s ease-out both; }
 @keyframes splash-fade { from { opacity:0; } to { opacity:1; } }
+.card-back { background:linear-gradient(135deg,#00BDBD,#06D3D3); }
 
 .lookup-message { margin:8px 0 0; padding:8px 10px; border:1px solid #ffb4ad; border-radius:12px; background:var(--surface); color:#9d2218; font-size:12px; line-height:1.35; }
 .lookup-message[hidden] { display:none; }
