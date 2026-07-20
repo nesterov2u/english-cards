@@ -8,7 +8,7 @@ import {
   getWiktionaryTranslation,
   isCompatibleWiktionarySearchTitle,
   parseWiktionaryEntry,
-} from './wiktionary.js?v=8';
+} from './wiktionary.js?v=9';
 
 const $ = (selector) => document.querySelector(selector);
 const DEFAULT_CONFIG = {
@@ -119,7 +119,7 @@ function renderStudyDetails(card) {
 function updateLibraryOtherMeanings(word, meanings) {
   document.querySelectorAll('[data-other-meanings-word]').forEach(element => {
     if (element.dataset.otherMeaningsWord !== word) return;
-    element.textContent = meanings ? `Другие значения: ${meanings}` : '';
+    element.textContent = meanings;
     element.hidden = !meanings;
   });
 }
@@ -157,7 +157,7 @@ function render() {
   $('#empty-state').style.display = state.totalCards || state.loadError ? 'none' : 'block';
   $('#cards-list').innerHTML = state.cards.map(card => {
     const meanings = otherMeanings.get(card.word.toLowerCase()) || '';
-    return `<article class="word-card"><button class="edit" data-id="${card.id}" aria-label="Редактировать"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.4-1 10.1-10.1a2.1 2.1 0 0 0-3-3L5.4 15.9 4 20Z" /><path d="m13.9 7.5 3 3" /></svg></button><button class="remove" data-id="${card.id}" aria-label="Удалить">×</button><h2>${escapeHtml(card.word)}</h2><p class="translation">${escapeHtml(card.translation)}</p><p class="examples">${escapeHtml(card.examples || '')}</p><p class="other-meanings" data-other-meanings-word="${escapeHtml(card.word.toLowerCase())}"${meanings ? '' : ' hidden'}>${meanings ? `Другие значения: ${escapeHtml(meanings)}` : ''}</p><p class="synonyms">${card.synonyms ? `Синонимы: ${escapeHtml(card.synonyms)}` : ''}</p></article>`;
+    return `<article class="word-card"><button class="edit" data-id="${card.id}" aria-label="Редактировать"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.4-1 10.1-10.1a2.1 2.1 0 0 0-3-3L5.4 15.9 4 20Z" /><path d="m13.9 7.5 3 3" /></svg></button><button class="remove" data-id="${card.id}" aria-label="Удалить">×</button><h2>${escapeHtml(card.word)}</h2><p class="translation">${escapeHtml(card.translation)}</p><p class="examples">${escapeHtml(card.examples || '')}</p><p class="other-meanings" data-other-meanings-word="${escapeHtml(card.word.toLowerCase())}"${meanings ? '' : ' hidden'}>${escapeHtml(meanings)}</p><p class="synonyms">${card.synonyms ? `Синонимы: ${escapeHtml(card.synonyms)}` : ''}</p></article>`;
   }).join('');
   if ($('#library-view').classList.contains('is-active')) state.cards.forEach(loadOtherMeanings);
   $('#load-more').hidden = state.cards.length >= state.totalCards || state.totalCards === 0;
