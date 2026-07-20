@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=10" />
+    <link rel="stylesheet" href="styles.css?v=11" />
     <style>
       .brand { letter-spacing: 0; }
       .brand-mark { width: 34px; height: 34px; }
@@ -155,6 +155,15 @@
         <button class="add-button add-outline wide" id="edit-save-word" type="submit">Сохранить изменения</button>
       </form>
     </dialog>
-    <script type="module" src="app.js?v=13"></script>
+    <dialog id="delete-dialog" aria-labelledby="delete-dialog-title">
+      <form method="dialog" class="delete-confirm-form">
+        <p id="delete-dialog-title">Удалить карточку?</p>
+        <div class="delete-confirm-actions">
+          <button class="delete-cancel" value="cancel">Отмена</button>
+          <button class="delete-confirm" value="confirm">Удалить</button>
+        </div>
+      </form>
+    </dialog>
+    <script type="module" src="app.js?v=14"></script>
   </body>
 </html>
