@@ -1,3 +1,15 @@
+import {
+  extractWiktionaryExamples,
+  extractWiktionarySynonyms,
+  getEnglishWiktionarySection,
+  getPreferredWiktionarySection,
+  getRussianWiktionaryTranslation,
+  getWiktionaryLemma,
+  getWiktionaryTranslation,
+  isCompatibleWiktionarySearchTitle,
+  parseWiktionaryEntry,
+} from './wiktionary.js';
+
 const $ = (selector) => document.querySelector(selector);
 const DEFAULT_CONFIG = {
   url: 'https://kxpzkdrfsjusaeeipssg.supabase.co',
@@ -6,7 +18,7 @@ const DEFAULT_CONFIG = {
 const config = DEFAULT_CONFIG;
 const PAGE_SIZE = 60;
 const STUDY_PROMPTS = ['Одно слово — уже шаг.', 'Повторение делает сильнее.', 'Учите в своём ритме.', 'Небольшой шаг, большой словарь.', 'Сегодня слово — завтра уверенность.', 'Продолжайте, вы справляетесь.'];
-const state = { cards: [], studyCards: null, totalCards: 0, isLoadingMore: false, isStudyLoading: false, currentIndex: null, recentStudyIds: [], seenStudyIds: new Set(), studyQueue: [], isStudyComplete: false, config };
+const state = { cards: [], studyCards: null, totalCards: 0, loadError: '', isLoadingMore: false, isStudyLoading: false, currentIndex: null, recentStudyIds: [], seenStudyIds: new Set(), studyQueue: [], isStudyComplete: false, config };
 let ignoreFlashcardClickUntil = 0;
 let studyLoadPromise = null;
 let addSuccessTimer = null;
@@ -19,16 +31,16 @@ function setSyncStatus(isConnected, message) { $('#sync-status').classList.toggl
 function setAppLoading(isLoading) { $('#app-loader').classList.toggle('is-hidden', !isLoading); $('#app-loader').setAttribute('aria-hidden', String(!isLoading)); }
 async function request(path, options = {}) {
   const { withCount = false, ...requestOptions } = options;
-  if (!state.config.url || !state.config.key) throw new Error('Подключите Supabase в настройках.');
+  if (!state.config.url || !state.config.key) throw new Error('Не удалось подключиться к базе. Попробуйте обновить страницу.');
   let response;
   try {
     response = await fetch(`${state.config.url}/rest/v1/${path}`, { ...requestOptions, headers: { ...apiHeaders(), ...requestOptions.headers } });
   } catch {
-    throw new Error('Не удалось найти проект Supabase. Проверьте URL проекта.');
+    throw new Error('Не удалось подключиться к базе. Проверьте интернет-соединение и попробуйте обновить страницу.');
   }
-  if (response.status === 401 || response.status === 403) throw new Error('Supabase отклонил ключ. Вставьте publishable/anon key из Settings → API.');
-  if (response.status === 404) throw new Error('Таблица карточек не создана. Выполните supabase/schema.sql в SQL Editor.');
-  if (!response.ok) throw new Error('Supabase пока недоступен. Проверьте настройки проекта.');
+  if (response.status === 401 || response.status === 403) throw new Error('Не удалось подключиться к базе. Попробуйте обновить страницу.');
+  if (response.status === 404) throw new Error('База карточек сейчас недоступна. Попробуйте обновить страницу позже.');
+  if (!response.ok) throw new Error('База карточек сейчас недоступна. Попробуйте обновить страницу позже.');
   const data = response.status === 204 ? null : await response.json();
   if (!withCount) return data;
   const total = Number(response.headers.get('content-range')?.split('/')[1]);
@@ -36,10 +48,16 @@ async function request(path, options = {}) {
 }
 async function loadCards() {
   setAppLoading(true);
-  state.cards = []; state.studyCards = null; state.totalCards = 0; state.currentIndex = null; state.recentStudyIds = []; state.seenStudyIds = new Set(); state.studyQueue = []; state.isStudyComplete = false;
-  if (!state.config.url || !state.config.key) { render(); setAppLoading(false); return; }
+  state.cards = []; state.studyCards = null; state.totalCards = 0; state.loadError = ''; state.currentIndex = null; state.recentStudyIds = []; state.seenStudyIds = new Set(); state.studyQueue = []; state.isStudyComplete = false;
+  if (!state.config.url || !state.config.key) {
+    state.loadError = 'Не удалось подключиться к базе. Попробуйте обновить страницу.';
+    setSyncStatus(false, state.loadError);
+    render();
+    setAppLoading(false);
+    return;
+  }
   try { await loadMoreCards(); setSyncStatus(true, 'Общая база подключена'); }
-  catch (error) { setSyncStatus(false, error.message); }
+  catch (error) { state.loadError = error.message; setSyncStatus(false, error.message); }
   render(); setAppLoading(false);
 }
 async function loadMoreCards() {
@@ -48,7 +66,10 @@ async function loadMoreCards() {
   try {
     const start = state.cards.length;
     const { data, total } = await request('cards?select=*&order=created_at.desc', { withCount: true, headers: { Range: `${start}-${start + PAGE_SIZE - 1}`, Prefer: 'count=exact' } });
-    state.cards.push(...data); state.totalCards = total;
+    state.cards.push(...data); state.totalCards = total; state.loadError = '';
+  } catch (error) {
+    state.loadError = error.message;
+    throw error;
   } finally { state.isLoadingMore = false; render(); }
 }
 async function loadStudyCards() {
@@ -82,7 +103,9 @@ function fitStudyHeading(element) {
 function render() {
   $('#word-count').textContent = state.totalCards;
   $('#library-view').classList.toggle('has-cards', state.totalCards > 0);
-  $('#empty-state').style.display = state.totalCards ? 'none' : 'block';
+  $('#library-error').hidden = !state.loadError;
+  $('#library-error-message').textContent = state.loadError;
+  $('#empty-state').style.display = state.totalCards || state.loadError ? 'none' : 'block';
   $('#cards-list').innerHTML = state.cards.map(card => `<article class="word-card"><button class="edit" data-id="${card.id}" aria-label="Редактировать"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.4-1 10.1-10.1a2.1 2.1 0 0 0-3-3L5.4 15.9 4 20Z" /><path d="m13.9 7.5 3 3" /></svg></button><button class="remove" data-id="${card.id}" aria-label="Удалить">×</button><h2>${escapeHtml(card.word)}</h2><p class="translation">${escapeHtml(card.translation)}</p><p class="examples">${escapeHtml(card.examples || '')}</p><p class="synonyms">${card.synonyms ? `Синонимы: ${escapeHtml(card.synonyms)}` : ''}</p></article>`).join('');
   $('#load-more').hidden = state.cards.length >= state.totalCards || state.totalCards === 0;
   $('#load-more').disabled = state.isLoadingMore;
@@ -107,132 +130,6 @@ function setCardFlipped(isFlipped) {
 }
 function setStudyPrompt() { $('#study-prompt').textContent = STUDY_PROMPTS[Math.floor(Math.random() * STUDY_PROMPTS.length)]; }
 function switchView(name) { document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('is-active', tab.dataset.view === name)); document.querySelectorAll('.view').forEach(view => view.classList.toggle('is-active', view.id === `${name}-view`)); if (name === 'study') { setStudyPrompt(); if (state.totalCards) loadStudyCards(); } }
-function getEnglishWiktionarySection(wikitext) {
-  const section = wikitext.match(/(?:^|\n)==English==\s*\n([\s\S]*?)(?=\n==[^=][^\n]*==\s*(?:\n|$)|$)/);
-  return section?.[1] || '';
-}
-function getWiktionaryPartOfSpeechEntries(english, parts = 'Noun|Verb|Adjective|Adverb|Pronoun|Preposition|Conjunction|Interjection|Determiner|Article|Numeral|Proper noun') {
-  const lines = english.split('\n');
-  const entries = [];
-  const headingPattern = new RegExp(`^(={3,})(?:${parts})\\1\\s*$`, 'i');
-  for (let start = 0; start < lines.length; start += 1) {
-    const heading = lines[start].match(headingPattern);
-    if (!heading) continue;
-    const level = heading[1].length;
-    let end = start + 1;
-    while (end < lines.length) {
-      const nextHeading = lines[end].match(/^(={3,})[^=].*?\1\s*$/);
-      if (nextHeading && nextHeading[1].length <= level) break;
-      end += 1;
-    }
-    entries.push({ part: lines[start].replace(/=/g, '').trim(), content: lines.slice(start + 1, end).join('\n') });
-  }
-  return entries;
-}
-function getWiktionaryPartOfSpeechSections(english, parts) {
-  return getWiktionaryPartOfSpeechEntries(english, parts).map(entry => entry.content);
-}
-function getWiktionaryVerbSection(english) {
-  return getWiktionaryTranslatableEntries(english).find(entry => entry.part.toLowerCase() === 'verb')?.content || '';
-}
-function hasWiktionaryTranslationReference(section) {
-  return /\{\{trans-(?:top|see)/i.test(section);
-}
-function getWiktionaryTranslatableEntries(english) {
-  return getWiktionaryPartOfSpeechEntries(english).filter(entry =>
-    hasWiktionaryTranslationReference(entry.content) && getWiktionaryTranslation(entry.content)
-  );
-}
-function getPreferredWiktionarySection(english, word = '', preferVerb = false) {
-  const entries = getWiktionaryTranslatableEntries(english);
-  const verb = getWiktionaryVerbSection(english);
-  const coreVerbs = new Set(['be', 'do', 'go', 'have', 'make', 'take', 'get', 'give', 'come', 'know', 'think', 'see', 'want', 'use', 'find', 'tell', 'ask', 'work', 'seem', 'feel', 'try', 'leave', 'call']);
-  const lemma = getWiktionaryLemma(english, word);
-  if (lemma) {
-    const adjective = entries.find(entry => entry.part.toLowerCase() === 'adjective' && hasWiktionaryTranslationReference(entry.content));
-    if (adjective) return adjective.content;
-    if (verb) return verb;
-  }
-  if (verb && (preferVerb || coreVerbs.has(word.toLowerCase()))) return verb;
-  const preferredParts = ['Noun', 'Adjective', 'Adverb', 'Verb', 'Proper noun', 'Pronoun', 'Determiner', 'Article', 'Numeral', 'Preposition', 'Conjunction', 'Interjection'];
-  for (const part of preferredParts) {
-    const entry = entries.find(item => item.part.toLowerCase() === part.toLowerCase());
-    if (entry) return entry.content;
-  }
-  return entries[0]?.content || '';
-}
-function decodeHtmlEntities(text) {
-  const element = document.createElement('textarea');
-  element.innerHTML = text;
-  return element.value;
-}
-function getWiktionaryTranslation(section) {
-  const blocks = [...section.matchAll(/\{\{trans-top(?:-see)?\|[^}]*\}\}([\s\S]*?)\{\{trans-bottom[^}]*\}\}/gi)];
-  const translations = blocks.map(block => ({
-    label: cleanWiktionaryText(block[0].match(/\{\{trans-top(?:-see)?\|([^}|]+)/i)?.[1] || ''),
-    value: cleanWiktionaryText(block[1].match(/\{\{(?:t|tt)\+?\|ru\|([^|}]+)/i)?.[1] || '')
-  })).filter(item => item.value);
-  const semanticTranslation = translations.find(item => !/^(?:in |for |as |used |auxiliary|pro-verb|grammatical|syntactic|emphasis|question|negation)/i.test(item.label));
-  return semanticTranslation?.value || translations[0]?.value || '';
-}
-function cleanWiktionaryText(text) {
-  let value = text;
-  while (/\{\{[^{}]*\}\}/.test(value)) value = value.replace(/\{\{[^{}]*\}\}/g, '');
-  return decodeHtmlEntities(value)
-    .replace(/\[\[([^\]|]*\|)?([^\]]+)\]\]/g, '$2')
-    .replace(/''+/g, '')
-    .replace(/<[^>]*>/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-function parseWiktionaryEntry(wikitext, word, preferVerb = false) {
-  const english = getEnglishWiktionarySection(wikitext);
-  const section = getPreferredWiktionarySection(english, word, preferVerb);
-  const translation = getWiktionaryTranslation(section);
-  return { translation, irregularForms: extractIrregularVerbForms(section, word) };
-}
-function regularPastForm(word) {
-  if (!/^[a-z]+$/.test(word)) return '';
-  if (word.endsWith('e')) return `${word}d`;
-  if (/[^aeiou]y$/.test(word)) return `${word.slice(0, -1)}ied`;
-  return `${word}ed`;
-}
-function normalizeVerbForm(value, word, previous = '', regular = '') {
-  const alternatives = value.replace(/<[^>]*>|\[[^\]]*\]/g, '').split(',').map(item => item.split(':')[0].trim()).filter(Boolean);
-  let form = alternatives.find(item => item !== '+') || alternatives[0] || '';
-  if (!form || form === '-') return '';
-  if (form === '+') return regular || previous || word;
-  if (form.startsWith('~')) form = `${word}${form.slice(1)}`;
-  else if (/^[a-z]{1,2}$/i.test(form)) form = `${word}${form}`;
-  return cleanWiktionaryText(form).trim().toLowerCase();
-}
-function extractIrregularVerbForms(english, sourceWord) {
-  const word = sourceWord.toLowerCase();
-  if (word === 'be') return ['was/were', 'been'];
-  const template = english.match(/\{\{en-verb\|([^{}]+)\}\}/i)?.[1];
-  if (!template) return [];
-  if (!word) return [];
-  const compact = template.match(/^[^|<]+<([^>]+)>/);
-  const parts = (compact ? compact[1].split(',') : template.split('|')).map(part => part.trim());
-  const pastIndex = compact ? 2 : parts.length >= 4 ? 2 : 2;
-  const participleIndex = compact ? 3 : parts.length >= 4 ? 3 : 2;
-  const regular = regularPastForm(word);
-  const past = normalizeVerbForm(parts[pastIndex] || '', word, '', regular);
-  const participle = normalizeVerbForm(parts[participleIndex] || '', word, past, regular);
-  if (!past || !participle || (past === regular && participle === regular)) return [];
-  return [...new Set([past, participle])];
-}
-function getWiktionaryLemma(english, sourceWord) {
-  const primaryEtymology = english.match(/(?:^|\n)===Etymology(?: \d+)?===\s*\n([\s\S]*?)(?=\n===Etymology(?: \d+)?===|$)/i)?.[1] || english;
-  const template = primaryEtymology.match(/\{\{(?:inflection of|infl of|past participle of|simple past of|past tense of|present participle of|present tense of|third-person singular of|third-person singular simple present indicative form of|verb form of|plural of|comparative of|superlative of)\|en\|([^|}]+)/i)?.[1] || '';
-  const lemma = cleanWiktionaryText(template.replace(/<[^>]*>/g, '')).split(',')[0].trim().toLowerCase();
-  return lemma && lemma !== sourceWord.toLowerCase() ? lemma : '';
-}
-function getRussianWiktionaryTranslation(wikitext) {
-  const english = wikitext.match(/(?:^|\n)=\s*\{\{-en-\}\}\s*=\s*\n([\s\S]*?)(?=\n=\s*\{\{-[a-z-]+-\}\}\s*=|$)/i)?.[1] || '';
-  const definition = english.match(/==== Значение ====\s*\n#\s*(.+?)(?=\n#|\n====|$)/s)?.[1] || '';
-  return cleanWiktionaryText(definition);
-}
 async function lookupRussianWiktionaryTranslation(word, signal) {
   try {
     const url = new URL('https://ru.wiktionary.org/w/api.php');
@@ -258,13 +155,6 @@ async function searchWiktionaryTitles(word, signal) {
     if (error.name === 'AbortError') throw error;
     return [];
   }
-}
-function normalizeWiktionarySearchTitle(value) {
-  return value.toLocaleLowerCase('en').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[\s.'’_-]+/g, '');
-}
-function isCompatibleWiktionarySearchTitle(title, word) {
-  const normalizedWord = normalizeWiktionarySearchTitle(word);
-  return normalizedWord && normalizeWiktionarySearchTitle(title) === normalizedWord;
 }
 async function lookupFromWiktionary(word, signal, lookedUp = new Set(), canSearch = true, preferVerb = false) {
   if (lookedUp.has(word)) throw new Error('Перевод не найден. Попробуйте другое слово или добавьте перевод вручную.');
@@ -319,19 +209,9 @@ async function lookupFromWiktionary(word, signal, lookedUp = new Set(), canSearc
     synonyms: extractWiktionarySynonyms(allEnglish).join(', ')
   };
 }
-function extractWiktionaryExamples(english) {
-  return uniqueText([...english.matchAll(/\{\{ux\|en\|([^|}]+)/gi)].map(match => cleanWiktionaryText(match[1])), 2);
-}
-function extractWiktionarySynonyms(english) {
-  const values = [...english.matchAll(/\{\{syn(?:onyms)?\|en\|([^}]+)/gi)]
-    .flatMap(match => match[1].split('|'))
-    .filter(value => value && !value.includes('='))
-    .map(value => cleanWiktionaryText(value))
-    .filter(value => !/^Thesaurus:/i.test(value));
-  return uniqueText(values, 8);
-}
 $('.tabs').addEventListener('click', event => { const tab = event.target.closest('.tab'); if (tab) switchView(tab.dataset.view); });
 $('#load-more').onclick = () => loadMoreCards().catch(error => alert(error.message));
+$('#retry-load').onclick = loadCards;
 function getCardFromForm(prefix, form) { return { word: $(`#${prefix}-word-input`).value.trim(), translation: $(`#${prefix}-translation-input`).value.trim(), examples: $(`#${prefix}-examples-input`).value.trim(), synonyms: $(`#${prefix}-synonyms-input`).value.trim(), phonetic: form.dataset.phonetic || '' }; }
 function showAddSuccess() {
   const message = $('#add-success');
@@ -486,9 +366,6 @@ function getLookupErrorMessage(error) {
   return /[А-Яа-яЁё]/.test(message)
     ? message
     : 'Не удалось получить данные из словаря. Попробуйте ещё раз.';
-}
-function uniqueText(values, limit = 8) {
-  return [...new Set(values.filter(Boolean))].slice(0, limit);
 }
 async function lookup(word, signal) {
   return lookupFromWiktionary(word, signal);

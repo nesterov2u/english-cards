@@ -75,6 +75,10 @@
 
       <section class="view" id="library-view">
         <h1 class="library-heading">Словарь</h1>
+        <section class="library-error" id="library-error" role="alert" hidden>
+          <p id="library-error-message"></p>
+          <button class="library-retry" id="retry-load" type="button">Повторить</button>
+        </section>
         <div class="empty-state" id="empty-state">
           <div class="seed">✦</div>
           <h2>Здесь вырастет ваш словарь</h2>
@@ -139,6 +143,6 @@
         <button class="add-button add-outline wide" id="edit-save-word" type="submit">Сохранить изменения</button>
       </form>
     </dialog>
-    <script src="app.js"></script>
+    <script type="module" src="app.js"></script>
   </body>
 </html>
