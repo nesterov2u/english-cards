@@ -1,7 +1,8 @@
 <svg width="390" height="844" viewBox="0 0 390 844" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="390" height="844" fill="#00B8C8"/>
+  <defs><linearGradient id="splash-gradient" x1="0" y1="0" x2="390" y2="844" gradientUnits="userSpaceOnUse"><stop stop-color="#00BDBD"/><stop offset="1" stop-color="#06D3D3"/></linearGradient></defs>
+  <rect width="390" height="844" fill="url(#splash-gradient)"/>
   <g transform="translate(67 393)">
     <image href="../brand-logo.svg" width="58" height="58"/>
-    <text x="70" y="40" fill="white" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif" font-size="34" font-weight="700">English Cards</text>
+    <text x="68" y="40" fill="white" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif" font-size="34" font-weight="700">English Cards</text>
   </g>
 </svg>
