@@ -8,7 +8,7 @@ import {
   getWiktionaryTranslation,
   isCompatibleWiktionarySearchTitle,
   parseWiktionaryEntry,
-} from './wiktionary.js?v=9';
+} from './wiktionary.js?v=11';
 
 const $ = (selector) => document.querySelector(selector);
 const DEFAULT_CONFIG = {
@@ -17,6 +17,7 @@ const DEFAULT_CONFIG = {
 };
 const config = DEFAULT_CONFIG;
 const PAGE_SIZE = 60;
+const MANUAL_TRANSLATION_MARKER = '__manual_translation__';
 const STUDY_PROMPTS = ['Одно слово — уже шаг.', 'Повторение делает сильнее.', 'Учите в своём ритме.', 'Небольшой шаг, большой словарь.', 'Сегодня слово — завтра уверенность.', 'Продолжайте, вы справляетесь.'];
 const state = { cards: [], studyCards: null, totalCards: 0, loadError: '', isLoadingMore: false, isStudyLoading: false, currentIndex: null, recentStudyIds: [], seenStudyIds: new Set(), studyQueue: [], isStudyComplete: false, config };
 let ignoreFlashcardClickUntil = 0;
@@ -95,6 +96,7 @@ async function loadStudyCards() {
   return studyLoadPromise;
 }
 function escapeHtml(text = '') { const element = document.createElement('span'); element.textContent = text; return element.innerHTML; }
+function hasManualTranslation(card) { return card.phonetic === MANUAL_TRANSLATION_MARKER; }
 function fitStudyHeading(element) {
   element.style.fontSize = '';
   const availableWidth = element.parentElement.clientWidth - 70;
@@ -105,7 +107,7 @@ function fitStudyHeading(element) {
   }
 }
 function getStudyDetails(card) {
-  const meanings = otherMeanings.get(card.word.toLowerCase()) || '';
+  const meanings = hasManualTranslation(card) ? '' : otherMeanings.get(card.word.toLowerCase()) || '';
   return { meanings, synonyms: card.synonyms ? `Синонимы: ${card.synonyms}` : '' };
 }
 function renderStudyDetails(card) {
@@ -143,6 +145,7 @@ function processOtherMeaningsQueue() {
   }
 }
 function loadOtherMeanings(card) {
+  if (hasManualTranslation(card)) return;
   const word = card.word.toLowerCase();
   if (otherMeanings.has(word) || pendingOtherMeanings.has(word)) return;
   pendingOtherMeanings.add(word);
@@ -156,10 +159,10 @@ function render() {
   $('#library-error-message').textContent = state.loadError;
   $('#empty-state').style.display = state.totalCards || state.loadError ? 'none' : 'block';
   $('#cards-list').innerHTML = state.cards.map(card => {
-    const meanings = otherMeanings.get(card.word.toLowerCase()) || '';
+    const meanings = hasManualTranslation(card) ? '' : otherMeanings.get(card.word.toLowerCase()) || '';
     return `<article class="word-card"><button class="edit" data-id="${card.id}" aria-label="Редактировать"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.4-1 10.1-10.1a2.1 2.1 0 0 0-3-3L5.4 15.9 4 20Z" /><path d="m13.9 7.5 3 3" /></svg></button><button class="remove" data-id="${card.id}" aria-label="Удалить">×</button><h2>${escapeHtml(card.word)}</h2><p class="translation">${escapeHtml(card.translation)}</p><p class="examples">${escapeHtml(card.examples || '')}</p><p class="other-meanings" data-other-meanings-word="${escapeHtml(card.word.toLowerCase())}"${meanings ? '' : ' hidden'}>${escapeHtml(meanings)}</p><p class="synonyms">${card.synonyms ? `Синонимы: ${escapeHtml(card.synonyms)}` : ''}</p></article>`;
   }).join('');
-  if ($('#library-view').classList.contains('is-active')) state.cards.forEach(loadOtherMeanings);
+  if ($('#library-view').classList.contains('is-active')) state.cards.filter(card => !hasManualTranslation(card)).forEach(loadOtherMeanings);
   $('#load-more').hidden = state.cards.length >= state.totalCards || state.totalCards === 0;
   $('#load-more').disabled = state.isLoadingMore;
   $('#load-more').textContent = state.isLoadingMore ? 'Загружаем…' : 'Показать ещё';
@@ -173,7 +176,7 @@ function render() {
   $('#study-progress-count').textContent = `${shownStudyCards} из ${totalStudyCards}`;
   $('#study-progress-value').style.width = totalStudyCards ? `${shownStudyCards / totalStudyCards * 100}%` : '0%';
   $('#shuffle-study').hidden = !totalStudyCards;
-  if (card) { $('#study-word').textContent = card.word; $('#study-phonetic').textContent = card.phonetic || ''; $('#study-translation').textContent = card.translation; renderStudyDetails(card); loadOtherMeanings(card); fitStudyHeading($('#study-word')); fitStudyHeading($('#study-translation')); setCardFlipped(false); }
+  if (card) { $('#study-word').textContent = card.word; $('#study-phonetic').textContent = hasManualTranslation(card) ? '' : card.phonetic || ''; $('#study-translation').textContent = card.translation; renderStudyDetails(card); loadOtherMeanings(card); fitStudyHeading($('#study-word')); fitStudyHeading($('#study-translation')); setCardFlipped(false); }
 }
 function setCardFlipped(isFlipped) {
   $('#flashcard').classList.toggle('is-flipped', isFlipped);
@@ -268,9 +271,12 @@ $('#load-more').onclick = () => loadMoreCards().catch(error => alert(error.messa
 $('#retry-load').onclick = loadCards;
 function setGeneratedField(prefix, name, value) {
   const content = String(value || '').trim();
-  $(`#${prefix}-${name}-input`).value = content;
-  $(`#${prefix}-${name}-text`).textContent = content;
-  $(`#${prefix}-${name}-field`).hidden = !content;
+  const input = $(`#${prefix}-${name}-input`);
+  const text = $(`#${prefix}-${name}-text`);
+  const field = $(`#${prefix}-${name}-field`);
+  if (input) input.value = content;
+  if (text) text.textContent = content;
+  if (field) field.hidden = !content;
 }
 function setGeneratedFields(prefix, examples = '', otherMeanings = '', synonyms = '') {
   setGeneratedField(prefix, 'examples', examples);
@@ -280,7 +286,7 @@ function setGeneratedFields(prefix, examples = '', otherMeanings = '', synonyms 
 function clearGeneratedFields(prefix, form) {
   clearTimeout(lookupTimers[prefix]);
   lookupControllers[prefix]?.abort();
-  form.dataset.phonetic = '';
+  form.dataset.phonetic = MANUAL_TRANSLATION_MARKER;
   setGeneratedFields(prefix);
 }
 function getCardFromForm(prefix, form) { return { word: $(`#${prefix}-word-input`).value.trim(), translation: $(`#${prefix}-translation-input`).value.trim(), examples: $(`#${prefix}-examples-input`).value.trim(), synonyms: $(`#${prefix}-synonyms-input`).value.trim(), phonetic: form.dataset.phonetic || '' }; }
@@ -313,7 +319,7 @@ async function fillCardFields(prefix, form) {
   const controller = new AbortController();
   lookupControllers[prefix] = controller;
   saveButton.disabled = true;
-  $(`#${prefix}-lookup-loading`).classList.add('show');
+  $(`#${prefix}-lookup-loading`)?.classList.add('show');
   try {
     const data = await lookup(word, controller.signal);
     if (controller.signal.aborted || $(`#${prefix}-word-input`).value.trim() !== word) return;
@@ -326,7 +332,7 @@ async function fillCardFields(prefix, form) {
   } finally {
     if (lookupControllers[prefix] === controller) {
       saveButton.disabled = false;
-      $(`#${prefix}-lookup-loading`).classList.remove('show');
+      $(`#${prefix}-lookup-loading`)?.classList.remove('show');
     }
   }
 }
@@ -424,11 +430,13 @@ loadCards();
 
 function showLookupMessage(prefix, message) {
   const element = $(`#${prefix}-lookup-message`);
+  if (!element) return;
   element.textContent = message;
   element.hidden = false;
 }
 function hideLookupMessage(prefix) {
   const element = $(`#${prefix}-lookup-message`);
+  if (!element) return;
   element.hidden = true;
   element.textContent = '';
 }

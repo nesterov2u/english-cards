@@ -146,29 +146,15 @@
         <button class="close" type="button" aria-label="Закрыть">×</button>
         <p class="eyebrow">Редактирование карточки</p>
         <label>Слово или фраза на английском<input id="edit-word-input" required autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" /><span class="field-warning" role="alert" hidden></span></label>
-        <p class="lookup-message" id="edit-lookup-message" role="status" hidden></p>
-        <div class="loading" id="edit-lookup-loading">Ищем перевод…</div>
         <div class="auto-fields show" id="edit-auto-fields">
           <label>Перевод<input id="edit-translation-input" required /><span class="field-warning" role="alert" hidden></span></label>
-          <section class="generated-field" id="edit-examples-field" hidden>
-            <p class="generated-label">Примеры</p>
-            <p class="generated-content" id="edit-examples-text"></p>
-            <input id="edit-examples-input" type="hidden" />
-          </section>
-          <section class="generated-field generated-other-meanings" id="edit-other-meanings-field" hidden>
-            <p class="generated-label">Другие значения</p>
-            <p class="generated-content" id="edit-other-meanings-text"></p>
-            <input id="edit-other-meanings-input" type="hidden" />
-          </section>
-          <section class="generated-field generated-synonyms" id="edit-synonyms-field" hidden>
-            <p class="generated-label">Синонимы</p>
-            <p class="generated-content" id="edit-synonyms-text"></p>
-            <input id="edit-synonyms-input" type="hidden" />
-          </section>
+          <input id="edit-examples-input" type="hidden" />
+          <input id="edit-other-meanings-input" type="hidden" />
+          <input id="edit-synonyms-input" type="hidden" />
         </div>
         <button class="add-button add-outline wide" id="edit-save-word" type="submit">Сохранить изменения</button>
       </form>
     </dialog>
-    <script type="module" src="app.js?v=10"></script>
+    <script type="module" src="app.js?v=12"></script>
   </body>
 </html>

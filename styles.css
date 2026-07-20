@@ -64,5 +64,6 @@ input.is-invalid { border-color:#ff3b30 !important; box-shadow:0 0 0 3px #ff3b30
 .generated-other-meanings .generated-content { color:var(--blue); }
 .generated-synonyms .generated-content { color:var(--muted); }
 #study-details { white-space:pre-line; }
+input[type="hidden"] { display:none; }
 #study-details span { display:block; }
 #study-synonyms:not([hidden]) { margin-top:10px; }
