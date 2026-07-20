@@ -36,12 +36,37 @@ const entries = {
 ===Noun===
 # A result shown before a treatment.`,
   do: `==English==
-===Noun===
-# A party or event.
 ===Verb===
 ====Translations====
 {{trans-top|perform}}
 * Russian: {{t|ru|делать}}
+{{trans-bottom}}
+===Noun===
+# A party or event.`,
+  take: `==English==
+===Verb===
+# To get into one's possession.
+===Noun===
+====Translations====
+{{trans-top|an act of taking}}
+* Russian: {{t|ru|взятие}}
+{{trans-bottom}}`,
+  go: `==English==
+===Etymology 1===
+====Verb====
+# To move through space.
+====Noun====
+====Translations====
+{{trans-top|a turn}}
+* Russian: {{t|ru|очередь}}
+{{trans-bottom}}`,
+  house: `==English==
+===Noun===
+# A building for habitation.
+===Verb===
+====Translations====
+{{trans-top|to contain}}
+* Russian: {{t|ru|вмещать}}
 {{trans-bottom}}`,
   born: `==English==
 ===Etymology===
@@ -92,8 +117,17 @@ Deno.test('does not select a phrase-like noun meaning for before', () => {
   assertEquals(parseWiktionaryEntry(entries.before, 'before').translation, 'раньше');
 });
 
-Deno.test('prefers the semantic verb meaning of do', () => {
+Deno.test('uses the first lexical part of speech for do', () => {
   assertEquals(parseWiktionaryEntry(entries.do, 'do').translation, 'делать');
+});
+
+Deno.test('does not replace a primary verb with a later translated noun', () => {
+  assertEquals(parseWiktionaryEntry(entries.take, 'take').translation, '');
+  assertEquals(parseWiktionaryEntry(entries.go, 'go').translation, '');
+});
+
+Deno.test('does not replace a primary noun with a later translated verb', () => {
+  assertEquals(parseWiktionaryEntry(entries.house, 'house').translation, '');
 });
 
 Deno.test('keeps the independent adjective meaning of born', () => {

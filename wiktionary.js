@@ -17,20 +17,6 @@ function getWiktionaryPartOfSpeechEntries(english, parts = 'Noun|Verb|Adjective|
   return entries;
 }
 
-function hasWiktionaryTranslationReference(section) {
-  return /\{\{trans-(?:top|see)/i.test(section);
-}
-
-function getWiktionaryTranslatableEntries(english) {
-  return getWiktionaryPartOfSpeechEntries(english).filter(entry =>
-    hasWiktionaryTranslationReference(entry.content) && getWiktionaryTranslation(entry.content)
-  );
-}
-
-function getWiktionaryVerbSection(english) {
-  return getWiktionaryTranslatableEntries(english).find(entry => entry.part.toLowerCase() === 'verb')?.content || '';
-}
-
 function decodeHtmlEntities(text) {
   if (typeof document === 'undefined') return text;
   const element = document.createElement('textarea');
@@ -80,22 +66,11 @@ export function getWiktionaryLemma(english, sourceWord) {
 }
 
 export function getPreferredWiktionarySection(english, word = '', preferVerb = false) {
-  const entries = getWiktionaryTranslatableEntries(english);
-  const verb = getWiktionaryVerbSection(english);
-  const coreVerbs = new Set(['be', 'do', 'go', 'have', 'make', 'take', 'get', 'give', 'come', 'know', 'think', 'see', 'want', 'use', 'find', 'tell', 'ask', 'work', 'seem', 'feel', 'try', 'leave', 'call']);
-  const lemma = getWiktionaryLemma(english, word);
-  if (lemma) {
-    const adjective = entries.find(entry => entry.part.toLowerCase() === 'adjective');
-    if (adjective) return adjective.content;
-    if (verb) return verb;
-  }
-  if (verb && (preferVerb || coreVerbs.has(word.toLowerCase()))) return verb;
-  const preferredParts = ['Noun', 'Adjective', 'Adverb', 'Verb', 'Proper noun', 'Pronoun', 'Determiner', 'Article', 'Numeral', 'Preposition', 'Conjunction', 'Interjection'];
-  for (const part of preferredParts) {
-    const entry = entries.find(item => item.part.toLowerCase() === part.toLowerCase());
-    if (entry) return entry.content;
-  }
-  return entries[0]?.content || '';
+  const entries = getWiktionaryPartOfSpeechEntries(english);
+  const lexicalParts = new Set(['noun', 'verb', 'adjective', 'adverb', 'proper noun']);
+  const lexicalEntries = entries.filter(entry => lexicalParts.has(entry.part.toLowerCase()));
+  if (preferVerb) return lexicalEntries.find(entry => entry.part.toLowerCase() === 'verb')?.content || lexicalEntries[0]?.content || '';
+  return lexicalEntries[0]?.content || entries[0]?.content || '';
 }
 
 function regularPastForm(word) {
