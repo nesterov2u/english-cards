@@ -33,7 +33,7 @@ let activeOtherMeaningsRequests = 0;
 
 function apiHeaders() { return { apikey: state.config.key, Authorization: `Bearer ${state.config.key}`, 'Content-Type': 'application/json' }; }
 function setSyncStatus(isConnected, message) { $('#sync-status').classList.toggle('is-connected', isConnected); $('#sync-status').classList.toggle('is-disconnected', !isConnected); $('#sync-status').setAttribute('aria-label', message); $('#sync-status').title = message; }
-function setAppLoading(isLoading) { document.documentElement.classList.toggle('is-splash-visible', isLoading); $('#app-loader').classList.toggle('is-hidden', !isLoading); $('#app-loader').setAttribute('aria-hidden', String(!isLoading)); }
+function setAppLoading(isLoading) { document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isLoading ? '#00BDBD' : '#f5f5f7'); document.documentElement.classList.toggle('is-splash-visible', isLoading); $('#app-loader').classList.toggle('is-hidden', !isLoading); $('#app-loader').setAttribute('aria-hidden', String(!isLoading)); }
 async function request(path, options = {}) {
   const { withCount = false, ...requestOptions } = options;
   if (!state.config.url || !state.config.key) throw new Error('Не удалось подключиться к базе. Попробуйте обновить страницу.');
@@ -185,7 +185,8 @@ function setCardFlipped(isFlipped) {
   $('#flashcard').setAttribute('aria-label', isFlipped ? 'Показать следующую карточку' : 'Показать перевод');
 }
 function setStudyPrompt() { $('#study-prompt').textContent = STUDY_PROMPTS[Math.floor(Math.random() * STUDY_PROMPTS.length)]; }
-function switchView(name) { document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('is-active', tab.dataset.view === name)); document.querySelectorAll('.view').forEach(view => view.classList.toggle('is-active', view.id === `${name}-view`)); if (name === 'study') { setStudyPrompt(); if (state.totalCards) loadStudyCards(); } if (name === 'library') render(); }
+function resetMobileTabsViewport() { if (!window.matchMedia('(max-width: 600px)').matches) return; const tabs = $('.tabs'); tabs.style.setProperty('--viewport-reflow', '.01px'); requestAnimationFrame(() => tabs.style.removeProperty('--viewport-reflow')); }
+function switchView(name) { const activeElement = document.activeElement; if (activeElement instanceof HTMLElement) activeElement.blur(); document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('is-active', tab.dataset.view === name)); document.querySelectorAll('.view').forEach(view => view.classList.toggle('is-active', view.id === `${name}-view`)); resetMobileTabsViewport(); if (name === 'study') { setStudyPrompt(); if (state.totalCards) loadStudyCards(); } if (name === 'library') render(); }
 async function lookupRussianWiktionaryTranslation(word, signal) {
   try {
     const url = new URL('https://ru.wiktionary.org/w/api.php');
@@ -267,6 +268,7 @@ async function lookupFromWiktionary(word, signal, lookedUp = new Set(), canSearc
   };
 }
 $('.tabs').addEventListener('click', event => { const tab = event.target.closest('.tab'); if (tab) switchView(tab.dataset.view); });
+window.visualViewport?.addEventListener('resize', resetMobileTabsViewport);
 $('#load-more').onclick = () => loadMoreCards().catch(error => alert(error.message));
 $('#retry-load').onclick = loadCards;
 function setGeneratedField(prefix, name, value) {
