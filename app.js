@@ -185,7 +185,7 @@ function setCardFlipped(isFlipped) {
   $('#flashcard').setAttribute('aria-label', isFlipped ? 'Показать следующую карточку' : 'Показать перевод');
 }
 function setStudyPrompt() { $('#study-prompt').textContent = STUDY_PROMPTS[Math.floor(Math.random() * STUDY_PROMPTS.length)]; }
-function switchView(name) { const activeElement = document.activeElement; if (activeElement instanceof HTMLElement) activeElement.blur(); document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('is-active', tab.dataset.view === name)); document.querySelectorAll('.view').forEach(view => view.classList.toggle('is-active', view.id === `${name}-view`)); updateMobileTabsViewport(); if (name === 'study') { setStudyPrompt(); if (state.totalCards) loadStudyCards(); } if (name === 'library') render(); }
+function switchView(name) { const activeElement = document.activeElement; if (activeElement instanceof HTMLElement) activeElement.blur(); document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('is-active', tab.dataset.view === name)); document.querySelectorAll('.view').forEach(view => view.classList.toggle('is-active', view.id === `${name}-view`)); if (name === 'study') { setStudyPrompt(); if (state.totalCards) loadStudyCards(); } if (name === 'library') render(); }
 async function lookupRussianWiktionaryTranslation(word, signal) {
   try {
     const url = new URL('https://ru.wiktionary.org/w/api.php');
@@ -271,17 +271,8 @@ const tabsAnchor = document.createComment('tabs-anchor');
 tabs.before(tabsAnchor);
 const mobileTabsQuery = window.matchMedia('(max-width: 600px)');
 function placeTabsForViewport() { if (mobileTabsQuery.matches) document.body.append(tabs); else tabsAnchor.after(tabs); }
-function updateMobileTabsViewport() {
-  if (!mobileTabsQuery.matches || !window.visualViewport) return;
-  const viewport = window.visualViewport;
-  const hiddenBottom = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
-  tabs.style.setProperty('--viewport-bottom-inset', `${hiddenBottom}px`);
-}
 mobileTabsQuery.addEventListener?.('change', placeTabsForViewport);
 placeTabsForViewport();
-updateMobileTabsViewport();
-window.visualViewport?.addEventListener('resize', updateMobileTabsViewport);
-window.visualViewport?.addEventListener('scroll', updateMobileTabsViewport);
 tabs.addEventListener('click', event => { const tab = event.target.closest('.tab'); if (tab) switchView(tab.dataset.view); });
 $('#load-more').onclick = () => loadMoreCards().catch(error => alert(error.message));
 $('#retry-load').onclick = loadCards;
