@@ -73,8 +73,9 @@ input.is-invalid { border-color:#ff3b30 !important; box-shadow:0 0 0 3px #ff3b30
 .generated-other-meanings .generated-content { color:var(--blue); }
 .generated-synonyms .generated-content { color:var(--muted); }
 .generated-options { display:flex; flex-wrap:wrap; gap:6px; white-space:normal; }
-.generated-option { min-height:30px; padding:4px 8px; border:1px solid #00B8C844; border-radius:9px; background:transparent; color:var(--blue); font:inherit; font-size:13px; line-height:1.35; }
-.generated-option:hover { background:var(--soft-blue); }
+.generated-option { min-height:30px; padding:4px 8px; border:1px solid #00B8C844; border-radius:9px; background:transparent; color:var(--blue); font:inherit; font-size:13px; line-height:1.35; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+@media (hover:hover) { .generated-option:hover { background:var(--soft-blue); } }
+.generated-option:active { background:var(--soft-blue); }
 .generated-option:focus-visible { outline:3px solid #00B8C822; outline-offset:2px; }
 #study-details { white-space:pre-line; font-size:13px; line-height:1.35; }
 input[type="hidden"] { display:none; }
