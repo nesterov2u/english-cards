@@ -62,8 +62,9 @@ input.is-invalid { border-color:#ff3b30 !important; box-shadow:0 0 0 3px #ff3b30
 .library-retry:hover { background:var(--soft-blue); }
 @media (max-width:600px) { .library-error { align-items:flex-start; flex-direction:column; gap:12px; } }
 @media (min-width:601px) { .splash-mark { width:56px; height:56px; } }
-.word-card .examples,.word-card .other-meanings,.word-card .synonyms { max-width:calc(100% - 50px); margin:0; color:var(--muted); font-size:13px; line-height:1.45; white-space:pre-line; }
+.word-card .forms,.word-card .other-meanings,.word-card .synonyms { max-width:calc(100% - 50px); margin:0; color:var(--muted); font-size:13px; line-height:1.45; white-space:pre-line; }
 .word-card .other-meanings { margin-top:8px; color:var(--blue); font-size:12px; }
+.word-card .forms { margin-top:8px; font-size:12px; }
 .word-card .synonyms { margin-top:8px; color:var(--muted); font-size:12px; }
 .generated-field { margin-top:26px; }
 .generated-field[hidden] { display:none; }

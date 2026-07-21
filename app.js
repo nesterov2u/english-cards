@@ -1,5 +1,4 @@
 import {
-  extractWiktionaryExamples,
   extractWiktionarySynonyms,
   getEnglishWiktionarySection,
   getPreferredWiktionarySection,
@@ -96,6 +95,7 @@ async function loadStudyCards() {
   return studyLoadPromise;
 }
 function escapeHtml(text = '') { const element = document.createElement('span'); element.textContent = text; return element.innerHTML; }
+function getStoredForms(value = '') { return String(value).split(/\r?\n/).filter(line => /^Формы:\s*/.test(line.trim())).join('\n'); }
 function hasManualTranslation(card) { return card.phonetic === MANUAL_TRANSLATION_MARKER; }
 function fitStudyHeading(element) {
   element.style.fontSize = '';
@@ -160,7 +160,8 @@ function render() {
   $('#empty-state').style.display = state.totalCards || state.loadError ? 'none' : 'block';
   $('#cards-list').innerHTML = state.cards.map(card => {
     const meanings = hasManualTranslation(card) ? '' : otherMeanings.get(card.word.toLowerCase()) || '';
-    return `<article class="word-card"><button class="edit" data-id="${card.id}" aria-label="Редактировать"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.4-1 10.1-10.1a2.1 2.1 0 0 0-3-3L5.4 15.9 4 20Z" /><path d="m13.9 7.5 3 3" /></svg></button><button class="remove" data-id="${card.id}" aria-label="Удалить">×</button><h2>${escapeHtml(card.word)}</h2><p class="translation">${escapeHtml(card.translation)}</p><p class="examples">${escapeHtml(card.examples || '')}</p><p class="other-meanings" data-other-meanings-word="${escapeHtml(card.word.toLowerCase())}"${meanings ? '' : ' hidden'}>${escapeHtml(meanings)}</p><p class="synonyms">${card.synonyms ? `Синонимы: ${escapeHtml(card.synonyms)}` : ''}</p></article>`;
+    const forms = getStoredForms(card.examples);
+    return `<article class="word-card"><button class="edit" data-id="${card.id}" aria-label="Редактировать"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.4-1 10.1-10.1a2.1 2.1 0 0 0-3-3L5.4 15.9 4 20Z" /><path d="m13.9 7.5 3 3" /></svg></button><button class="remove" data-id="${card.id}" aria-label="Удалить">×</button><h2>${escapeHtml(card.word)}</h2><p class="translation">${escapeHtml(card.translation)}</p><p class="other-meanings" data-other-meanings-word="${escapeHtml(card.word.toLowerCase())}"${meanings ? '' : ' hidden'}>${escapeHtml(meanings)}</p>${forms ? `<p class="forms">${escapeHtml(forms)}</p>` : ''}<p class="synonyms">${card.synonyms ? `Синонимы: ${escapeHtml(card.synonyms)}` : ''}</p></article>`;
   }).join('');
   if ($('#library-view').classList.contains('is-active')) state.cards.filter(card => !hasManualTranslation(card)).forEach(loadOtherMeanings);
   $('#load-more').hidden = state.cards.length >= state.totalCards || state.totalCards === 0;
@@ -261,7 +262,7 @@ async function lookupFromWiktionary(word, signal, lookedUp = new Set(), canSearc
   return {
     translation,
     phonetic: '',
-    examples: [...forms, ...extractWiktionaryExamples(allEnglish)].join('\n'),
+    examples: forms.join('\n'),
     otherMeanings: entry.otherTranslations.join(', '),
     synonyms: extractWiktionarySynonyms(allEnglish).join(', ')
   };
