@@ -185,8 +185,7 @@ function setCardFlipped(isFlipped) {
   $('#flashcard').setAttribute('aria-label', isFlipped ? 'Показать следующую карточку' : 'Показать перевод');
 }
 function setStudyPrompt() { $('#study-prompt').textContent = STUDY_PROMPTS[Math.floor(Math.random() * STUDY_PROMPTS.length)]; }
-function resetMobileTabsViewport() { if (!window.matchMedia('(max-width: 600px)').matches) return; const tabs = $('.tabs'); tabs.style.setProperty('--viewport-reflow', '.01px'); requestAnimationFrame(() => tabs.style.removeProperty('--viewport-reflow')); }
-function switchView(name) { const activeElement = document.activeElement; if (activeElement instanceof HTMLElement) activeElement.blur(); document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('is-active', tab.dataset.view === name)); document.querySelectorAll('.view').forEach(view => view.classList.toggle('is-active', view.id === `${name}-view`)); resetMobileTabsViewport(); if (name === 'study') { setStudyPrompt(); if (state.totalCards) loadStudyCards(); } if (name === 'library') render(); }
+function switchView(name) { const activeElement = document.activeElement; if (activeElement instanceof HTMLElement) activeElement.blur(); document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('is-active', tab.dataset.view === name)); document.querySelectorAll('.view').forEach(view => view.classList.toggle('is-active', view.id === `${name}-view`)); if (name === 'study') { setStudyPrompt(); if (state.totalCards) loadStudyCards(); } if (name === 'library') render(); }
 async function lookupRussianWiktionaryTranslation(word, signal) {
   try {
     const url = new URL('https://ru.wiktionary.org/w/api.php');
@@ -267,8 +266,14 @@ async function lookupFromWiktionary(word, signal, lookedUp = new Set(), canSearc
     synonyms: extractWiktionarySynonyms(allEnglish).join(', ')
   };
 }
-$('.tabs').addEventListener('click', event => { const tab = event.target.closest('.tab'); if (tab) switchView(tab.dataset.view); });
-window.visualViewport?.addEventListener('resize', resetMobileTabsViewport);
+const tabs = $('.tabs');
+const tabsAnchor = document.createComment('tabs-anchor');
+tabs.before(tabsAnchor);
+const mobileTabsQuery = window.matchMedia('(max-width: 600px)');
+function placeTabsForViewport() { if (mobileTabsQuery.matches) document.body.append(tabs); else tabsAnchor.after(tabs); }
+mobileTabsQuery.addEventListener?.('change', placeTabsForViewport);
+placeTabsForViewport();
+tabs.addEventListener('click', event => { const tab = event.target.closest('.tab'); if (tab) switchView(tab.dataset.view); });
 $('#load-more').onclick = () => loadMoreCards().catch(error => alert(error.message));
 $('#retry-load').onclick = loadCards;
 function setGeneratedField(prefix, name, value) {
