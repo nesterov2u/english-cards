@@ -282,8 +282,22 @@ function setGeneratedField(prefix, name, value) {
   const text = $(`#${prefix}-${name}-text`);
   const field = $(`#${prefix}-${name}-field`);
   if (input) input.value = content;
-  if (text) text.textContent = content;
+  if (text) {
+    if (prefix === 'add' && name === 'other-meanings') {
+      text.replaceChildren(...getOtherMeaningOptions(content).map(option => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'generated-option';
+        button.dataset.otherMeaning = option;
+        button.textContent = option;
+        return button;
+      }));
+    } else text.textContent = content;
+  }
   if (field) field.hidden = !content;
+}
+function getOtherMeaningOptions(value) {
+  return [...new Set(String(value || '').split(/[,;\n]/).map(option => option.trim()).filter(Boolean))];
 }
 function setGeneratedFields(prefix, examples = '', otherMeanings = '', synonyms = '') {
   setGeneratedField(prefix, 'examples', examples);
@@ -393,6 +407,18 @@ $('#add-word-input').addEventListener('input', event => { normalizeWordInput(eve
 $('#edit-word-input').addEventListener('input', event => { normalizeWordInput(event.target); scheduleLookup('edit', $('#edit-word-form')); });
 $('#add-translation-input').addEventListener('input', () => clearGeneratedFields('add', $('#add-word-form')));
 $('#edit-translation-input').addEventListener('input', () => clearGeneratedFields('edit', $('#edit-word-form')));
+$('#add-other-meanings-text').addEventListener('click', event => {
+  const option = event.target.closest('[data-other-meaning]');
+  if (!option) return;
+  const translationInput = $('#add-translation-input');
+  const selectedTranslation = option.dataset.otherMeaning;
+  const previousTranslation = translationInput.value.trim();
+  const remainingMeanings = getOtherMeaningOptions($('#add-other-meanings-input').value).filter(value => value !== selectedTranslation);
+  if (previousTranslation && previousTranslation !== selectedTranslation) remainingMeanings.unshift(previousTranslation);
+  translationInput.value = selectedTranslation;
+  setGeneratedField('add', 'other-meanings', [...new Set(remainingMeanings)].join(', '));
+  clearFieldWarning(translationInput);
+});
 ['#add-word-form', '#edit-word-form'].forEach(selector => {
   $(selector).addEventListener('input', event => {
     if (event.target.matches('[required]')) clearFieldWarning(event.target);
