@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=25" />
+    <link rel="stylesheet" href="styles.css?v=26" />
     <style>
       html, body { min-height: 100vh; min-height: 100dvh; }
       html.is-splash-visible, html.is-splash-visible body { background-color: #06D3D3; background-image: linear-gradient(180deg, #06D3D3 0%, #00BDBD 50%, #06D3D3 100%); }
@@ -50,7 +50,10 @@
     <main class="app-shell">
       <header>
         <a class="brand" href="#" aria-label="English Cards"><span class="brand-mark" aria-hidden="true"></span></a>
-        <span class="sync-status is-disconnected" id="sync-status" role="status" aria-label="База не подключена" title="База не подключена"></span>
+        <div class="header-actions">
+          <button class="account-button" id="account-button" type="button" aria-haspopup="dialog">Войти</button>
+          <span class="sync-status is-disconnected" id="sync-status" role="status" aria-label="База не подключена" title="База не подключена"></span>
+        </div>
       </header>
 
       <nav class="tabs" aria-label="Режим приложения">
@@ -168,6 +171,18 @@
         </div>
       </form>
     </dialog>
-    <script type="module" src="app.js?v=22"></script>
+    <dialog id="auth-dialog" aria-labelledby="auth-dialog-title">
+      <form id="auth-form" novalidate>
+        <button class="close" id="auth-close" type="button" aria-label="Закрыть"></button>
+        <p class="eyebrow">Ваш личный словарь</p>
+        <h2 id="auth-dialog-title">Войдите по email</h2>
+        <p class="auth-copy">Отправим ссылку для входа. Пароль не понадобится.</p>
+        <label>Email<input id="auth-email-input" type="email" required autocomplete="email" inputmode="email" placeholder="you@example.com" /><span class="field-warning" role="alert" hidden></span></label>
+        <p class="auth-message" id="auth-message" role="status" hidden></p>
+        <button class="add-button add-outline wide" id="auth-submit" type="submit">Отправить ссылку</button>
+        <button class="auth-sign-out" id="auth-sign-out" type="button" hidden>Выйти из аккаунта</button>
+      </form>
+    </dialog>
+    <script type="module" src="app.js?v=23"></script>
   </body>
 </html>

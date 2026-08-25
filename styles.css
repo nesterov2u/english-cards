@@ -79,6 +79,20 @@ input.is-invalid { border-color:#ff3b30 !important; box-shadow:0 0 0 3px #ff3b30
 .generated-option:focus-visible { outline:3px solid #00B8C822; outline-offset:2px; }
 #study-details { white-space:pre-line; font-size:13px; line-height:1.35; }
 input[type="hidden"] { display:none; }
+#auth-dialog { width:min(440px,calc(100% - 28px)); border-radius:18px; background:var(--surface); }
+#auth-dialog form { padding:26px; }
+#auth-dialog h2 { margin:0; font-size:28px; }
+#auth-dialog label { display:block; margin-top:24px; font-size:14px; font-weight:600; }
+#auth-email-input { min-height:52px; margin-top:9px; border-radius:14px; }
+.auth-copy { margin:10px 0 0; color:var(--muted); font-size:14px; line-height:1.45; }
+.auth-message { margin:16px 0 -8px; padding:10px 12px; border-radius:12px; background:var(--soft-blue); color:#007c87; font-size:13px; line-height:1.4; }
+.auth-message.is-error { background:#fff1f0; color:#9d2218; }
+.auth-message[hidden] { display:none; }
+.auth-sign-out { display:block; width:100%; margin-top:13px; padding:10px 14px; border:0; background:transparent; color:var(--muted); font-size:14px; font-weight:500; }
+.auth-sign-out:hover { color:#ff3b30; }
+.header-actions { display:flex; align-items:center; gap:13px; min-width:0; }
+.account-button { max-width:190px; overflow:hidden; padding:7px 10px; border:0; border-radius:11px; background:transparent; color:var(--muted); font-size:13px; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
+.account-button:hover { background:var(--surface); color:var(--blue); }
 #study-details span { display:block; }
 #study-synonyms:not([hidden]) { margin-top:10px; }
 .card-back.has-long-definition #study-details { top:calc(50% + 45px); bottom:72px; overflow-y:auto; font-size:13px; line-height:1.35; }
