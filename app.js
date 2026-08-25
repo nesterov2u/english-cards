@@ -16,15 +16,13 @@ const DEFAULT_CONFIG = {
 };
 const config = DEFAULT_CONFIG;
 const PAGE_SIZE = 60;
-const AUTH_STORAGE_KEY = 'english-cards-auth-session';
 const MANUAL_TRANSLATION_MARKER = '__manual_translation__';
 const STUDY_PROMPTS = ['Одно слово — уже шаг.', 'Повторение делает сильнее.', 'Учите в своём ритме.', 'Небольшой шаг, большой словарь.', 'Сегодня слово — завтра уверенность.', 'Продолжайте, вы справляетесь.'];
-const state = { cards: [], studyCards: null, totalCards: 0, loadError: '', isLoadingMore: false, isStudyLoading: false, currentIndex: null, recentStudyIds: [], seenStudyIds: new Set(), studyQueue: [], isStudyComplete: false, session: null, config };
+const state = { cards: [], studyCards: null, totalCards: 0, loadError: '', isLoadingMore: false, isStudyLoading: false, currentIndex: null, recentStudyIds: [], seenStudyIds: new Set(), studyQueue: [], isStudyComplete: false, config };
 let ignoreFlashcardClickUntil = 0;
 let studyLoadPromise = null;
 let addSuccessTimer = null;
 let addSuccessHideTimer = null;
-let sessionRefreshTimer = null;
 const lookupTimers = {};
 const lookupControllers = {};
 const otherMeanings = new Map();
@@ -32,78 +30,12 @@ const pendingOtherMeanings = new Set();
 const otherMeaningsQueue = [];
 let activeOtherMeaningsRequests = 0;
 
-function apiHeaders() { return { apikey: state.config.key, Authorization: `Bearer ${state.session?.access_token || state.config.key}`, 'Content-Type': 'application/json' }; }
+function apiHeaders() { return { apikey: state.config.key, Authorization: `Bearer ${state.config.key}`, 'Content-Type': 'application/json' }; }
 function setSyncStatus(isConnected, message) { $('#sync-status').classList.toggle('is-connected', isConnected); $('#sync-status').classList.toggle('is-disconnected', !isConnected); $('#sync-status').setAttribute('aria-label', message); $('#sync-status').title = message; }
 function setAppLoading(isLoading) { document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isLoading ? '#00BDBD' : '#f5f5f7'); document.documentElement.classList.toggle('is-splash-visible', isLoading); $('#app-loader').classList.toggle('is-hidden', !isLoading); $('#app-loader').setAttribute('aria-hidden', String(!isLoading)); }
-function isAuthenticated() { return Boolean(state.session?.access_token && state.session?.user?.id); }
-function saveSession(session) { state.session = session; localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session)); updateAccountUI(); scheduleSessionRefresh(); }
-function clearSession() { clearTimeout(sessionRefreshTimer); sessionRefreshTimer = null; state.session = null; localStorage.removeItem(AUTH_STORAGE_KEY); updateAccountUI(); }
-function updateAccountUI() {
-  const email = state.session?.user?.email || '';
-  $('#account-button').textContent = email || 'Войти';
-  $('#account-button').title = email || 'Войти';
-  $('#auth-sign-out').hidden = !email;
-  $('#auth-email-input').value = email;
-}
-function showAuthMessage(message = '', isError = false) {
-  const element = $('#auth-message');
-  element.textContent = message;
-  element.hidden = !message;
-  element.classList.toggle('is-error', isError);
-}
-function openAuthDialog() {
-  const dialog = $('#auth-dialog');
-  showAuthMessage();
-  if (!dialog.open) dialog.showModal();
-  if (isAuthenticated()) $('#auth-sign-out').focus(); else $('#auth-email-input').focus();
-}
-function closeAuthDialog() { if ($('#auth-dialog').open) $('#auth-dialog').close(); }
-function getSessionFromUrl() {
-  const params = new URLSearchParams(window.location.hash.slice(1));
-  const accessToken = params.get('access_token');
-  const refreshToken = params.get('refresh_token');
-  if (!accessToken || !refreshToken) return null;
-  const expiresIn = Number(params.get('expires_in')) || 3600;
-  const session = { access_token: accessToken, refresh_token: refreshToken, expires_at: Math.floor(Date.now() / 1000) + expiresIn, user: { id: params.get('user_id') || '', email: params.get('email') || '' } };
-  window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
-  return session;
-}
-async function refreshSession(session) {
-  if (!session?.refresh_token) return null;
-  const response = await fetch(`${state.config.url}/auth/v1/token?grant_type=refresh_token`, { method: 'POST', headers: { apikey: state.config.key, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: session.refresh_token }) });
-  if (!response.ok) return null;
-  const data = await response.json();
-  return { ...session, ...data, expires_at: Math.floor(Date.now() / 1000) + (Number(data.expires_in) || 3600) };
-}
-function scheduleSessionRefresh() {
-  clearTimeout(sessionRefreshTimer);
-  if (!state.session?.expires_at) return;
-  const delay = Math.max(10_000, (state.session.expires_at - Math.floor(Date.now() / 1000) - 120) * 1000);
-  sessionRefreshTimer = setTimeout(async () => {
-    const session = await refreshSession(state.session);
-    if (session) saveSession(session);
-    else { clearSession(); await loadCards(); }
-  }, delay);
-}
-async function initializeAuth() {
-  let session = getSessionFromUrl();
-  if (!session) {
-    try { session = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || 'null'); } catch { localStorage.removeItem(AUTH_STORAGE_KEY); }
-  }
-  if (session?.expires_at && session.expires_at <= Math.floor(Date.now() / 1000) + 60) session = await refreshSession(session);
-  if (session?.access_token) {
-    if (!session.user?.id) {
-      const response = await fetch(`${state.config.url}/auth/v1/user`, { headers: { apikey: state.config.key, Authorization: `Bearer ${session.access_token}` } });
-      if (response.ok) session.user = await response.json(); else session = null;
-    }
-    if (session) saveSession(session);
-  }
-  if (!session) clearSession();
-}
 async function request(path, options = {}) {
   const { withCount = false, ...requestOptions } = options;
   if (!state.config.url || !state.config.key) throw new Error('Не удалось подключиться к базе. Попробуйте обновить страницу.');
-  if (!isAuthenticated()) throw new Error('Войдите по email, чтобы открыть личный словарь.');
   let response;
   try {
     response = await fetch(`${state.config.url}/rest/v1/${path}`, { ...requestOptions, headers: { ...apiHeaders(), ...requestOptions.headers } });
@@ -128,14 +60,7 @@ async function loadCards() {
     setAppLoading(false);
     return;
   }
-  if (!isAuthenticated()) {
-    setSyncStatus(false, 'Войдите, чтобы открыть личный словарь');
-    render();
-    setAppLoading(false);
-    openAuthDialog();
-    return;
-  }
-  try { await loadMoreCards(); setSyncStatus(true, 'Личный словарь подключён'); }
+  try { await loadMoreCards(); setSyncStatus(true, 'Общая база подключена'); }
   catch (error) { state.loadError = error.message; setSyncStatus(false, error.message); }
   render(); setAppLoading(false);
 }
@@ -536,50 +461,7 @@ document.addEventListener('keydown', event => {
   ignoreFlashcardClickUntil = Date.now() + 250;
   activateFlashcard();
 });
-$('#account-button').onclick = openAuthDialog;
-$('#auth-close').onclick = closeAuthDialog;
-$('#auth-form').addEventListener('submit', async event => {
-  event.preventDefault();
-  const emailInput = $('#auth-email-input');
-  const email = emailInput.value.trim();
-  if (!email || !emailInput.validity.valid) {
-    emailInput.classList.add('is-invalid');
-    const warning = emailInput.closest('label')?.querySelector('.field-warning');
-    if (warning) { warning.textContent = 'Укажите корректный email.'; warning.hidden = false; }
-    emailInput.focus();
-    return;
-  }
-  const button = $('#auth-submit');
-  button.disabled = true;
-  showAuthMessage();
-  try {
-    const response = await fetch(`${state.config.url}/auth/v1/otp`, {
-      method: 'POST',
-      headers: { apikey: state.config.key, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, create_user: true, options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` } }),
-    });
-    if (!response.ok) throw new Error();
-    showAuthMessage('Ссылка отправлена. Откройте письмо на этой же устройстве и перейдите по ней.');
-  } catch {
-    showAuthMessage('Не удалось отправить ссылку. Попробуйте ещё раз.', true);
-  } finally { button.disabled = false; }
-});
-$('#auth-email-input').addEventListener('input', event => {
-  event.target.classList.remove('is-invalid');
-  const warning = event.target.closest('label')?.querySelector('.field-warning');
-  if (warning) warning.hidden = true;
-});
-$('#auth-sign-out').onclick = async () => {
-  const refreshToken = state.session?.refresh_token;
-  if (refreshToken) {
-    try { await fetch(`${state.config.url}/auth/v1/logout`, { method: 'POST', headers: { apikey: state.config.key, Authorization: `Bearer ${state.session.access_token}`, 'Content-Type': 'application/json' } }); } catch { /* Local logout still protects this browser. */ }
-  }
-  clearSession();
-  $('#auth-email-input').value = '';
-  await loadCards();
-};
-
-initializeAuth().then(loadCards).catch(() => { clearSession(); loadCards(); });
+loadCards();
 
 function showLookupMessage(prefix, message) {
   const element = $(`#${prefix}-lookup-message`);
